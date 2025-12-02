@@ -1,0 +1,30 @@
+{
+  "ir": {
+    "modeChangeCode": "0xC40387EE",
+    "receivePin": 1,
+    "handleRepeat": true,
+    "repeatInitialDelayReports": 5
+  },
+  "led": {
+    "pin": 16,
+    "keyboardModeColor": "0x290118",
+    "consumerModeColor": "0x012329",
+    "brightnessPercent": 10
+  },
+  "keyboard": [
+    {"irCode": "0xC40A87EE", "key": "0xDA"},         
+    {"irCode": "0xC40C87EE", "key": "0xD9"},           
+    {"irCode": "0xC40987EE", "key": "0xD8"},     
+    {"irCode": "0xC40687EE", "key": "0xD7"},        
+    {"irCode": "0xC45C87EE", "key": " "},           
+    {"irCode": "0xC45F87EE", "key": "0xB0"}
+  ],
+  "consumer": [
+    {"irCode": "0xC40A87EE", "key": "0xE9"},    
+    {"irCode": "0xC40C87EE", "key": "0xEA"},    
+    {"irCode": "0xC40987EE", "key": "0xB5"},        
+    {"irCode": "0xC40687EE", "key": "0xB6"},    
+    {"irCode": "0xC45C87EE", "key": "0xCD"},         
+    {"irCode": "0xC45F87EE", "key": "0xCD"}
+  ]
+}
