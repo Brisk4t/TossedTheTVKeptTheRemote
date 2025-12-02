@@ -1,9 +1,11 @@
 You know that feeling when you think, huh I think I..
 
 # Tossed the TV but Kept the Remote
+<div>
   <img src="https://img.shields.io/badge/-Arduino-00979D?style=for-the-badge&logo=Arduino&logoColor=white&logoSize=auto" alt="Arduino"/>
   <img src="https://img.shields.io/badge/-Raspberry_Pi-C51A4A?style=for-the-badge&logo=Raspberry-Pi" alt="Raspberry Pi"/>
   <img src="https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white&logoSize=auto" alt="C++"/>
+</div>
 
 ### Yeah that's what this is for.
 Turn an RP2040 (or other USB-capable MCU) into a USB HID device that receives IR remote codes and maps them to USB HID commands. Reuse old TV remotes as media remotes for media centers, HTPCs, and mind control(?).
