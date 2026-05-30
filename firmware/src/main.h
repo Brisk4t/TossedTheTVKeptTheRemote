@@ -20,25 +20,23 @@
 // LittleFS config file
 #define MAPPINGS_CONFIG_FILE "/settings.json"
 #define MAX_MAPPINGS 20
+#define MODE_COUNT 2
 
 
-struct IRKeyboard
-{
-  uint32_t irCode;
-  uint8_t key;
+enum IRSlotType : uint8_t {
+  SLOT_NONE = 0,
+  SLOT_KEYBOARD = 1,
+  SLOT_CONSUMER = 2
 };
 
-// Consumer/media mapping
-struct IRConsumer
+struct IRSlot
 {
   uint32_t irCode;
-  uint16_t consumerKey; // 16-bit HID usage
+  uint16_t key;
+  uint8_t type;
 };
 
-// Runtime arrays (loaded from JSON)
-extern IRKeyboard keyboardMap[MAX_MAPPINGS];
-extern uint8_t keyboardMapCount;
-extern IRConsumer consumerMap[MAX_MAPPINGS];
-extern uint8_t consumerMapCount;
+// Runtime slots (loaded from JSON)
+extern IRSlot modeSlots[MODE_COUNT][MAX_MAPPINGS];
 
 

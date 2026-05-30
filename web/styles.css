@@ -193,6 +193,15 @@ h1 {
   font-family: "IBM Plex Mono", monospace;
 }
 
+.detail select {
+  background: rgba(10, 15, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+}
+
 #jsonPanel {
   display: none;
 }

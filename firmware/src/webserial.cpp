@@ -44,7 +44,7 @@ void handleSerialCommand(const String& line) {
     applySettingsFromJson(data);
     updateLED();
 
-    bool persist = req["persist"] | false;
+    bool persist = req["persist"] | true;
     if (persist && !saveSettingsToFS()) {
       res["ok"] = false;
       res["error"] = "save_failed";

@@ -18,14 +18,11 @@ uint8_t REPEAT_DELAY_REPORTS = REPEAT_INITIAL_DELAY_REPORTS;
 uint32_t lastCode = 0; // Last received IR code for handling repeats
 uint8_t repeatCount = 0; // Count of repeated reports
 
-// Current mode: false = keyboard, true = consumer/media
-bool useConsumer = true;
+// Current mode index
+uint8_t currentMode = 0;
 
-// Runtime key maps (loaded from JSON files)
-IRKeyboard keyboardMap[MAX_MAPPINGS];
-uint8_t keyboardMapCount = 0;
-IRConsumer consumerMap[MAX_MAPPINGS];
-uint8_t consumerMapCount = 0;
+// Runtime slots (loaded from JSON files)
+IRSlot modeSlots[MODE_COUNT][MAX_MAPPINGS];
 
 // ------------------------------
 // USB HID (Adafruit TinyUSB)
@@ -43,11 +40,168 @@ void setupUsbHid() {
   usb_hid.begin();
 }
 
+bool asciiToHid(uint8_t ascii, uint8_t* modifier, uint8_t* keycode) {
+  *modifier = 0;
+  switch (ascii) {
+    case 'a' ... 'z':
+      *keycode = (uint8_t)(ascii - 'a' + 0x04);
+      return true;
+    case 'A' ... 'Z':
+      *keycode = (uint8_t)(ascii - 'A' + 0x04);
+      *modifier = 0x02; // left shift
+      return true;
+    case '1' ... '9':
+      *keycode = (uint8_t)(ascii - '1' + 0x1E);
+      return true;
+    case '0':
+      *keycode = 0x27;
+      return true;
+    case ' ':
+      *keycode = 0x2C;
+      return true;
+    case '\n':
+    case '\r':
+      *keycode = 0x28;
+      return true;
+    case '\t':
+      *keycode = 0x2B;
+      return true;
+    case '-':
+      *keycode = 0x2D;
+      return true;
+    case '=':
+      *keycode = 0x2E;
+      return true;
+    case '[':
+      *keycode = 0x2F;
+      return true;
+    case ']':
+      *keycode = 0x30;
+      return true;
+    case '\\':
+      *keycode = 0x31;
+      return true;
+    case ';':
+      *keycode = 0x33;
+      return true;
+    case '\'':
+      *keycode = 0x34;
+      return true;
+    case '`':
+      *keycode = 0x35;
+      return true;
+    case ',':
+      *keycode = 0x36;
+      return true;
+    case '.':
+      *keycode = 0x37;
+      return true;
+    case '/':
+      *keycode = 0x38;
+      return true;
+    case '!':
+      *keycode = 0x1E;
+      *modifier = 0x02;
+      return true;
+    case '@':
+      *keycode = 0x1F;
+      *modifier = 0x02;
+      return true;
+    case '#':
+      *keycode = 0x20;
+      *modifier = 0x02;
+      return true;
+    case '$':
+      *keycode = 0x21;
+      *modifier = 0x02;
+      return true;
+    case '%':
+      *keycode = 0x22;
+      *modifier = 0x02;
+      return true;
+    case '^':
+      *keycode = 0x23;
+      *modifier = 0x02;
+      return true;
+    case '&':
+      *keycode = 0x24;
+      *modifier = 0x02;
+      return true;
+    case '*':
+      *keycode = 0x25;
+      *modifier = 0x02;
+      return true;
+    case '(':
+      *keycode = 0x26;
+      *modifier = 0x02;
+      return true;
+    case ')':
+      *keycode = 0x27;
+      *modifier = 0x02;
+      return true;
+    case '_':
+      *keycode = 0x2D;
+      *modifier = 0x02;
+      return true;
+    case '+':
+      *keycode = 0x2E;
+      *modifier = 0x02;
+      return true;
+    case '{':
+      *keycode = 0x2F;
+      *modifier = 0x02;
+      return true;
+    case '}':
+      *keycode = 0x30;
+      *modifier = 0x02;
+      return true;
+    case '|':
+      *keycode = 0x31;
+      *modifier = 0x02;
+      return true;
+    case ':':
+      *keycode = 0x33;
+      *modifier = 0x02;
+      return true;
+    case '"':
+      *keycode = 0x34;
+      *modifier = 0x02;
+      return true;
+    case '~':
+      *keycode = 0x35;
+      *modifier = 0x02;
+      return true;
+    case '<':
+      *keycode = 0x36;
+      *modifier = 0x02;
+      return true;
+    case '>':
+      *keycode = 0x37;
+      *modifier = 0x02;
+      return true;
+    case '?':
+      *keycode = 0x38;
+      *modifier = 0x02;
+      return true;
+    default:
+      return false;
+  }
+}
+
 void sendKeyboardKey(uint8_t key) {
   if (!TinyUSBDevice.mounted()) return;
+  uint8_t modifier = 0;
+  uint8_t keycode = 0;
+
+  if (key < 0x20) {
+    keycode = key;
+  } else if (!asciiToHid(key, &modifier, &keycode)) {
+    return;
+  }
+
   uint8_t keycodes[6] = {0};
-  keycodes[0] = key;
-  tud_hid_keyboard_report(1, 0, keycodes);
+  keycodes[0] = keycode;
+  tud_hid_keyboard_report(1, modifier, keycodes);
   delay(10);
   uint8_t empty[6] = {0};
   tud_hid_keyboard_report(1, 0, empty);
@@ -72,18 +226,58 @@ uint32_t hexToRGB(uint32_t hexColor, uint32_t brightnessPercent = 100) {
   return (((uint32_t)g << 16) | ((uint32_t)r << 8) | b); // GRB format
 }
 
-int findKeyboardKey(uint32_t code) {
-  for (uint8_t i = 0; i < keyboardMapCount; i++)
-    if (keyboardMap[i].irCode == code)
-      return keyboardMap[i].key;
+void clearModeSlots(uint8_t modeIndex) {
+  if (modeIndex >= MODE_COUNT) return;
+  for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
+    modeSlots[modeIndex][i].irCode = 0;
+    modeSlots[modeIndex][i].key = 0;
+    modeSlots[modeIndex][i].type = SLOT_NONE;
+  }
+}
+
+int findSlotIndex(uint8_t modeIndex, uint32_t code) {
+  if (modeIndex >= MODE_COUNT) return -1;
+  for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
+    if (modeSlots[modeIndex][i].type != SLOT_NONE && modeSlots[modeIndex][i].irCode == code) {
+      return i;
+    }
+  }
   return -1;
 }
 
-uint16_t findConsumerKey(uint32_t code) {
-  for (uint8_t i = 0; i < consumerMapCount; i++)
-    if (consumerMap[i].irCode == code)
-      return consumerMap[i].consumerKey;
-  return 0;
+bool parseKeyValue(JsonVariant keyVar, uint16_t* outKey) {
+  if (keyVar.is<const char*>()) {
+    const char* keyStr = keyVar.as<const char*>();
+    size_t len = strlen(keyStr);
+    if (len == 1) {
+      *outKey = (uint8_t)keyStr[0];
+      return true;
+    }
+    if (len > 2 && keyStr[0] == '0' && (keyStr[1] == 'x' || keyStr[1] == 'X')) {
+      *outKey = (uint16_t)strtoul(keyStr, NULL, 16);
+      return true;
+    }
+    *outKey = (uint16_t)atoi(keyStr);
+    return true;
+  }
+  if (keyVar.is<int>()) {
+    *outKey = (uint16_t)keyVar.as<int>();
+    return true;
+  }
+  return false;
+}
+
+uint8_t parseSlotType(JsonVariant typeVar) {
+  if (typeVar.is<const char*>()) {
+    const char* typeStr = typeVar.as<const char*>();
+    if (strcmp(typeStr, "keyboard") == 0) return SLOT_KEYBOARD;
+    if (strcmp(typeStr, "consumer") == 0) return SLOT_CONSUMER;
+  }
+  if (typeVar.is<uint8_t>()) {
+    uint8_t typeVal = typeVar.as<uint8_t>();
+    if (typeVal <= SLOT_CONSUMER) return typeVal;
+  }
+  return SLOT_NONE;
 }
 
 void applyIrSettings(JsonObject ir) {
@@ -117,52 +311,66 @@ void applyLedSettings(JsonObject led) {
   COLOR_CONSUMER_CONFIG = hexToRGB(consumerColor, LED_BRIGHTNESS_CONFIG);
 }
 
-void applyKeyboardMappings(JsonArray mappings) {
-  keyboardMapCount = 0;
+void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
+  if (modeIndex >= MODE_COUNT) return;
+  clearModeSlots(modeIndex);
 
-  for (JsonObject mapping : mappings) {
-    if (keyboardMapCount >= MAX_MAPPINGS) break;
+  uint8_t slotIndex = 0;
+  for (JsonObject slot : slots) {
+    if (slotIndex >= MAX_MAPPINGS) break;
 
-    const char* irCodeStr = mapping["irCode"];
-    keyboardMap[keyboardMapCount].irCode = strtoul(irCodeStr, NULL, 16);
-
-    uint8_t keyVal = 0;
-    if (mapping["key"].is<const char*>()) {
-      const char* keyStr = mapping["key"];
-      size_t len = strlen(keyStr);
-      if (len == 1) {
-        keyVal = (uint8_t)keyStr[0];
-      } else if (len > 2 && keyStr[0] == '0' && (keyStr[1] == 'x' || keyStr[1] == 'X')) {
-        keyVal = (uint8_t)strtoul(keyStr, NULL, 16);
-      } else {
-        keyVal = (uint8_t)atoi(keyStr);
-      }
-    } else if (mapping["key"].is<int>()) {
-      keyVal = (uint8_t)mapping["key"];
+    if (!slot["irCode"].is<const char*>()) {
+      slotIndex++;
+      continue;
     }
 
-    keyboardMap[keyboardMapCount].key = keyVal;
-    keyboardMapCount++;
+    const char* irCodeStr = slot["irCode"];
+    uint16_t keyVal = 0;
+    if (!parseKeyValue(slot["key"], &keyVal)) {
+      slotIndex++;
+      continue;
+    }
+
+    uint8_t typeVal = parseSlotType(slot["type"]);
+    if (typeVal == SLOT_NONE) {
+      slotIndex++;
+      continue;
+    }
+
+    modeSlots[modeIndex][slotIndex].irCode = strtoul(irCodeStr, NULL, 16);
+    modeSlots[modeIndex][slotIndex].key = keyVal;
+    modeSlots[modeIndex][slotIndex].type = typeVal;
+    slotIndex++;
   }
 }
 
-void applyConsumerMappings(JsonArray mappings) {
-  consumerMapCount = 0;
+void applyLegacyMappings(uint8_t modeIndex, JsonArray keyboard, JsonArray consumer) {
+  if (modeIndex >= MODE_COUNT) return;
+  clearModeSlots(modeIndex);
 
-  for (JsonObject mapping : mappings) {
-    if (consumerMapCount >= MAX_MAPPINGS) break;
+  uint8_t slotIndex = 0;
+  for (JsonObject mapping : keyboard) {
+    if (slotIndex >= MAX_MAPPINGS) break;
+    if (!mapping["irCode"].is<const char*>()) continue;
+    uint16_t keyVal = 0;
+    if (!parseKeyValue(mapping["key"], &keyVal)) continue;
 
-    const char* irCodeStr = mapping["irCode"];
-    consumerMap[consumerMapCount].irCode = strtoul(irCodeStr, NULL, 16);
+    modeSlots[modeIndex][slotIndex].irCode = strtoul(mapping["irCode"], NULL, 16);
+    modeSlots[modeIndex][slotIndex].key = keyVal;
+    modeSlots[modeIndex][slotIndex].type = SLOT_KEYBOARD;
+    slotIndex++;
+  }
 
-    if (mapping["key"].is<const char*>()) {
-      const char* keyStr = mapping["key"];
-      consumerMap[consumerMapCount].consumerKey = strtoul(keyStr, NULL, 16);
-    } else {
-      consumerMap[consumerMapCount].consumerKey = mapping["key"];
-    }
+  for (JsonObject mapping : consumer) {
+    if (slotIndex >= MAX_MAPPINGS) break;
+    if (!mapping["irCode"].is<const char*>()) continue;
+    uint16_t keyVal = 0;
+    if (!parseKeyValue(mapping["key"], &keyVal)) continue;
 
-    consumerMapCount++;
+    modeSlots[modeIndex][slotIndex].irCode = strtoul(mapping["irCode"], NULL, 16);
+    modeSlots[modeIndex][slotIndex].key = keyVal;
+    modeSlots[modeIndex][slotIndex].type = SLOT_CONSUMER;
+    slotIndex++;
   }
 }
 
@@ -171,10 +379,25 @@ void applySettingsFromJson(JsonObject doc) {
     applyIrSettings(doc["ir"].as<JsonObject>());
   if (doc["led"].is<JsonObject>())
     applyLedSettings(doc["led"].as<JsonObject>());
-  if (doc["keyboard"].is<JsonArray>())
-    applyKeyboardMappings(doc["keyboard"].as<JsonArray>());
-  if (doc["consumer"].is<JsonArray>())
-    applyConsumerMappings(doc["consumer"].as<JsonArray>());
+  if (doc["modes"].is<JsonArray>()) {
+    JsonArray modes = doc["modes"].as<JsonArray>();
+    uint8_t idx = 0;
+    for (JsonObject mode : modes) {
+      if (idx >= MODE_COUNT) break;
+      if (mode["slots"].is<JsonArray>()) {
+        applySlotsFromArray(idx, mode["slots"].as<JsonArray>());
+      } else if (mode["keyboard"].is<JsonArray>() || mode["consumer"].is<JsonArray>()) {
+        JsonArray keyboard = mode["keyboard"].is<JsonArray>() ? mode["keyboard"].as<JsonArray>() : JsonArray();
+        JsonArray consumer = mode["consumer"].is<JsonArray>() ? mode["consumer"].as<JsonArray>() : JsonArray();
+        applyLegacyMappings(idx, keyboard, consumer);
+      }
+      idx++;
+    }
+  } else if (doc["keyboard"].is<JsonArray>() || doc["consumer"].is<JsonArray>()) {
+    JsonArray keyboard = doc["keyboard"].is<JsonArray>() ? doc["keyboard"].as<JsonArray>() : JsonArray();
+    JsonArray consumer = doc["consumer"].is<JsonArray>() ? doc["consumer"].as<JsonArray>() : JsonArray();
+    applyLegacyMappings(0, keyboard, consumer);
+  }
 }
 
 void formatHex(char* out, size_t outSize, uint32_t value, uint8_t width) {
@@ -203,26 +426,32 @@ void buildSettingsJson(JsonObject doc) {
   led["keyboardModeColor"] = keyboardColorStr;
   led["consumerModeColor"] = consumerColorStr;
 
-  JsonArray keyboard = doc["keyboard"].to<JsonArray>();
-  for (uint8_t i = 0; i < keyboardMapCount; i++) {
-    JsonObject mapping = keyboard.add<JsonObject>();
-    char irCodeStr[12];
-    char keyStr[6];
-    formatHex(irCodeStr, sizeof(irCodeStr), keyboardMap[i].irCode, 8);
-    formatHex(keyStr, sizeof(keyStr), keyboardMap[i].key, 2);
-    mapping["irCode"] = irCodeStr;
-    mapping["key"] = keyStr;
-  }
+  JsonArray modes = doc["modes"].to<JsonArray>();
+  for (uint8_t modeIndex = 0; modeIndex < MODE_COUNT; modeIndex++) {
+    JsonObject mode = modes.add<JsonObject>();
+    mode["name"] = (modeIndex == 0) ? "Mode 1" : "Mode 2";
+    JsonArray slots = mode["slots"].to<JsonArray>();
 
-  JsonArray consumer = doc["consumer"].to<JsonArray>();
-  for (uint8_t i = 0; i < consumerMapCount; i++) {
-    JsonObject mapping = consumer.add<JsonObject>();
-    char irCodeStr[12];
-    char keyStr[8];
-    formatHex(irCodeStr, sizeof(irCodeStr), consumerMap[i].irCode, 8);
-    formatHex(keyStr, sizeof(keyStr), consumerMap[i].consumerKey, 4);
-    mapping["irCode"] = irCodeStr;
-    mapping["key"] = keyStr;
+    for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
+      JsonObject slot = slots.add<JsonObject>();
+      IRSlot current = modeSlots[modeIndex][i];
+      if (current.type == SLOT_NONE) continue;
+
+      char irCodeStr[12];
+      formatHex(irCodeStr, sizeof(irCodeStr), current.irCode, 8);
+      slot["irCode"] = irCodeStr;
+      slot["type"] = (current.type == SLOT_KEYBOARD) ? "keyboard" : "consumer";
+
+      if (current.type == SLOT_KEYBOARD) {
+        char keyStr[6];
+        formatHex(keyStr, sizeof(keyStr), current.key, 2);
+        slot["key"] = keyStr;
+      } else {
+        char keyStr[8];
+        formatHex(keyStr, sizeof(keyStr), current.key, 4);
+        slot["key"] = keyStr;
+      }
+    }
   }
 }
 
@@ -282,8 +511,8 @@ void loadSettings() {
   Serial.println("Settings loaded from JSON");
 }
 
-// Load keyboard mappings from JSON file
-void loadKeyboardMappings() {
+// Load mode mappings from JSON file
+void loadMappings() {
   if (!LittleFS.exists(MAPPINGS_CONFIG_FILE)) {
     Serial.println("Error: settings.json not found!");
     return;
@@ -300,38 +529,30 @@ void loadKeyboardMappings() {
     return;
   }
 
-  JsonArray mappings = doc["keyboard"];
-  applyKeyboardMappings(mappings);
-
-  Serial.print("Loaded ");
-  Serial.print(keyboardMapCount);
-  Serial.println(" keyboard mappings");
-}
-
-// Load consumer mappings from JSON file
-void loadConsumerMappings() {
-  if (!LittleFS.exists(MAPPINGS_CONFIG_FILE)) {
-    Serial.println("Error: settings.json not found!");
+  if (doc["modes"].is<JsonArray>()) {
+    JsonArray modes = doc["modes"].as<JsonArray>();
+    uint8_t idx = 0;
+    for (JsonObject mode : modes) {
+      if (idx >= MODE_COUNT) break;
+      if (mode["slots"].is<JsonArray>()) {
+        applySlotsFromArray(idx, mode["slots"].as<JsonArray>());
+      } else if (mode["keyboard"].is<JsonArray>() || mode["consumer"].is<JsonArray>()) {
+        JsonArray keyboard = mode["keyboard"].is<JsonArray>() ? mode["keyboard"].as<JsonArray>() : JsonArray();
+        JsonArray consumer = mode["consumer"].is<JsonArray>() ? mode["consumer"].as<JsonArray>() : JsonArray();
+        applyLegacyMappings(idx, keyboard, consumer);
+      }
+      idx++;
+    }
+    Serial.println("Loaded mode mappings");
     return;
   }
 
-  File file = LittleFS.open(MAPPINGS_CONFIG_FILE, "r");
-  StaticJsonDocument<JSON_DOC_SIZE> doc;
-  DeserializationError error = deserializeJson(doc, file);
-  file.close();
-
-  if (error) {
-    Serial.print("JSON parse error: ");
-    Serial.println(error.c_str());
-    return;
+  if (doc["keyboard"].is<JsonArray>() || doc["consumer"].is<JsonArray>()) {
+    JsonArray keyboard = doc["keyboard"].is<JsonArray>() ? doc["keyboard"].as<JsonArray>() : JsonArray();
+    JsonArray consumer = doc["consumer"].is<JsonArray>() ? doc["consumer"].as<JsonArray>() : JsonArray();
+    applyLegacyMappings(0, keyboard, consumer);
+    Serial.println("Loaded legacy mappings into Mode 1");
   }
-
-  JsonArray mappings = doc["consumer"];
-  applyConsumerMappings(mappings);
-
-  Serial.print("Loaded ");
-  Serial.print(consumerMapCount);
-  Serial.println(" consumer mappings");
 }
 
 
@@ -347,12 +568,10 @@ Adafruit_NeoPixel strip(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 // Update LED based on current mode
 void updateLED()
 {
-  if (useConsumer){
-    strip.setPixelColor(0, COLOR_CONSUMER_CONFIG); // Consumer Control
-  }
-
-  else {
-    strip.setPixelColor(0, COLOR_KEYBOARD_CONFIG); // Keyboard
+  if (currentMode == 0) {
+    strip.setPixelColor(0, COLOR_KEYBOARD_CONFIG); // Mode 1
+  } else {
+    strip.setPixelColor(0, COLOR_CONSUMER_CONFIG); // Mode 2
   }
   strip.show();
 }
@@ -369,8 +588,10 @@ void setup()
   } else {
     Serial.println("LittleFS mounted");
     loadSettings();
-    loadKeyboardMappings();
-    loadConsumerMappings();
+    for (uint8_t i = 0; i < MODE_COUNT; i++) {
+      clearModeSlots(i);
+    }
+    loadMappings();
   }
   
   IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
@@ -415,29 +636,25 @@ void loop() {
 
     // Check for mode change button
     if (code == mode_change) {
-      useConsumer = !useConsumer;
+      currentMode = (currentMode + 1) % MODE_COUNT;
       updateLED();
       Serial.print("Mode switched: ");
-      Serial.println(useConsumer ? "Consumer/Media" : "Keyboard");
+      Serial.println(currentMode == 0 ? "Mode 1" : "Mode 2");
     }
 
     // Handle key press based on current mode
     else {
-      if (useConsumer) {
-        uint16_t consumerKey = findConsumerKey(code);
-        if (consumerKey) {
-          consumerWrite(consumerKey);
-          Serial.print("Sent consumer key: ");
-          Serial.println(consumerKey, HEX);
-        }
-      }
-
-      else {
-        int key = findKeyboardKey(code);
-        if (key != -1) {
-          sendKeyboardKey((uint8_t)key);
+      int slotIndex = findSlotIndex(currentMode, code);
+      if (slotIndex >= 0) {
+        IRSlot slot = modeSlots[currentMode][slotIndex];
+        if (slot.type == SLOT_KEYBOARD) {
+          sendKeyboardKey((uint8_t)slot.key);
           Serial.print("Sent keyboard key: ");
-          Serial.println(key, HEX);
+          Serial.println(slot.key, HEX);
+        } else if (slot.type == SLOT_CONSUMER) {
+          consumerWrite(slot.key);
+          Serial.print("Sent consumer key: ");
+          Serial.println(slot.key, HEX);
         }
       }
     }

@@ -24,15 +24,14 @@
           <button id="connectBtn">Connect</button>
           <button id="disconnectBtn" class="ghost" disabled>Disconnect</button>
           <button id="getBtn" disabled>Load From Device</button>
-          <button id="applyBtn" disabled>Apply (RAM)</button>
-          <button id="saveBtn" disabled>Apply + Save</button>
+          <button id="applyBtn" disabled>Apply</button>
         </div>
 
         <div class="layout">
           <div class="toolbar">
             <div class="tabs">
-              <button class="tab active" data-layer="keyboard">Keyboard</button>
-              <button class="tab" data-layer="consumer">Consumer</button>
+              <button class="tab active" data-mode="0">Mode 1</button>
+              <button class="tab" data-mode="1">Mode 2</button>
             </div>
             <div class="subactions">
               <button id="learnBtn" class="ghost" disabled>Learn IR</button>
@@ -57,6 +56,13 @@
                 Key / Usage
                 <input id="keyInput" type="text" placeholder="0xE9 or a" />
               </label>
+              <label>
+                Type
+                <select id="typeSelect">
+                  <option value="keyboard">Keyboard</option>
+                  <option value="consumer">Consumer</option>
+                </select>
+              </label>
               <div class="hint">
                 Click Learn IR, then press the remote button.
               </div>
@@ -71,9 +77,7 @@
             <p>Uses Web Serial with a JSON line protocol.</p>
             <ul>
               <li><span>get</span> read current settings</li>
-              <li><span>set</span> apply in RAM only</li>
-              <li><span>set + persist</span> apply and save</li>
-              <li><span>save</span> save current RAM state</li>
+              <li><span>set</span> apply and save</li>
               <li><span>learn</span> capture the next IR code</li>
             </ul>
             <div class="hint">
