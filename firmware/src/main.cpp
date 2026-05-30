@@ -6,10 +6,12 @@
 uint8_t RECV_PIN = IR_RECEIVE_PIN;
 uint32_t mode_change = MODE_CHANGE_CODE;
 uint8_t LED_PIN_CONFIG = LED_PIN;
-uint32_t COLOR_CONSUMER_CONFIG = 0;
-uint32_t COLOR_KEYBOARD_CONFIG = 0;
-uint32_t CONSUMER_COLOR_RAW = CONSUMER_MODE_LED;
-uint32_t KEYBOARD_COLOR_RAW = KEYBOARD_MODE_LED;
+uint32_t COLOR_CONFIG[MODE_COUNT] = {0, 0, 0, 0, 0};
+uint32_t COLOR_RAW[MODE_COUNT] = {
+  DEFAULT_MODE_COLOR_0, DEFAULT_MODE_COLOR_1, DEFAULT_MODE_COLOR_2,
+  DEFAULT_MODE_COLOR_3, DEFAULT_MODE_COLOR_4
+};
+uint8_t numModes = 2;
 uint8_t LED_BRIGHTNESS_CONFIG = LED_BRIGHTNESS_PERCENT;
 bool HANDLE_REPEAT_CONFIG = HANDLE_REPEAT;
 uint8_t REPEAT_DELAY_REPORTS = REPEAT_INITIAL_DELAY_REPORTS;
@@ -289,6 +291,10 @@ void applyIrSettings(JsonObject ir) {
     HANDLE_REPEAT_CONFIG = ir["handleRepeat"];
   if (ir["repeatInitialDelayReports"].is<uint8_t>())
     REPEAT_DELAY_REPORTS = ir["repeatInitialDelayReports"];
+  if (ir["modeCount"].is<uint8_t>()) {
+    uint8_t mc = ir["modeCount"].as<uint8_t>();
+    if (mc >= 1 && mc <= MODE_COUNT) numModes = mc;
+  }
 }
 
 void applyLedSettings(JsonObject led) {
@@ -297,18 +303,25 @@ void applyLedSettings(JsonObject led) {
   if (led["brightnessPercent"].is<uint8_t>())
     LED_BRIGHTNESS_CONFIG = led["brightnessPercent"];
 
-  uint32_t keyboardColor = KEYBOARD_COLOR_RAW;
-  uint32_t consumerColor = CONSUMER_COLOR_RAW;
+  if (led["modeColors"].is<JsonArray>()) {
+    JsonArray colors = led["modeColors"].as<JsonArray>();
+    uint8_t idx = 0;
+    for (JsonVariant c : colors) {
+      if (idx >= MODE_COUNT) break;
+      if (c.is<const char*>())
+        COLOR_RAW[idx] = strtoul(c.as<const char*>(), NULL, 16);
+      idx++;
+    }
+  } else {
+    // Legacy two-key format
+    if (led["keyboardModeColor"].is<const char*>())
+      COLOR_RAW[0] = strtoul((const char*)led["keyboardModeColor"], NULL, 16);
+    if (led["consumerModeColor"].is<const char*>())
+      COLOR_RAW[1] = strtoul((const char*)led["consumerModeColor"], NULL, 16);
+  }
 
-  if (led["keyboardModeColor"].is<const char*>())
-    keyboardColor = strtoul((const char*)led["keyboardModeColor"], NULL, 16);
-  if (led["consumerModeColor"].is<const char*>())
-    consumerColor = strtoul((const char*)led["consumerModeColor"], NULL, 16);
-
-  KEYBOARD_COLOR_RAW = keyboardColor;
-  CONSUMER_COLOR_RAW = consumerColor;
-  COLOR_KEYBOARD_CONFIG = hexToRGB(keyboardColor, LED_BRIGHTNESS_CONFIG);
-  COLOR_CONSUMER_CONFIG = hexToRGB(consumerColor, LED_BRIGHTNESS_CONFIG);
+  for (uint8_t i = 0; i < MODE_COUNT; i++)
+    COLOR_CONFIG[i] = hexToRGB(COLOR_RAW[i], LED_BRIGHTNESS_CONFIG);
 }
 
 void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
@@ -411,6 +424,7 @@ void buildSettingsJson(JsonObject doc) {
   char modeChangeStr[12];
   formatHex(modeChangeStr, sizeof(modeChangeStr), mode_change, 8);
   ir["modeChangeCode"] = modeChangeStr;
+  ir["modeCount"] = numModes;
   ir["receivePin"] = RECV_PIN;
   ir["handleRepeat"] = HANDLE_REPEAT_CONFIG;
   ir["repeatInitialDelayReports"] = REPEAT_DELAY_REPORTS;
@@ -419,17 +433,19 @@ void buildSettingsJson(JsonObject doc) {
   led["pin"] = LED_PIN_CONFIG;
   led["brightnessPercent"] = LED_BRIGHTNESS_CONFIG;
 
-  char keyboardColorStr[12];
-  char consumerColorStr[12];
-  formatHex(keyboardColorStr, sizeof(keyboardColorStr), KEYBOARD_COLOR_RAW, 8);
-  formatHex(consumerColorStr, sizeof(consumerColorStr), CONSUMER_COLOR_RAW, 8);
-  led["keyboardModeColor"] = keyboardColorStr;
-  led["consumerModeColor"] = consumerColorStr;
+  JsonArray modeColors = led["modeColors"].to<JsonArray>();
+  for (uint8_t i = 0; i < numModes; i++) {
+    char colorStr[12];
+    formatHex(colorStr, sizeof(colorStr), COLOR_RAW[i], 6);
+    modeColors.add(colorStr);
+  }
 
   JsonArray modes = doc["modes"].to<JsonArray>();
-  for (uint8_t modeIndex = 0; modeIndex < MODE_COUNT; modeIndex++) {
+  for (uint8_t modeIndex = 0; modeIndex < numModes; modeIndex++) {
     JsonObject mode = modes.add<JsonObject>();
-    mode["name"] = (modeIndex == 0) ? "Mode 1" : "Mode 2";
+    char modeName[16];
+    snprintf(modeName, sizeof(modeName), "Mode %d", modeIndex + 1);
+    mode["name"] = modeName;
     JsonArray slots = mode["slots"].to<JsonArray>();
 
     for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
@@ -474,10 +490,8 @@ bool saveSettingsToFS() {
 void loadSettings() {
   if (!LittleFS.exists(MAPPINGS_CONFIG_FILE)) {
     Serial.println("settings.json not found, using defaults");
-    KEYBOARD_COLOR_RAW = KEYBOARD_MODE_LED;
-    CONSUMER_COLOR_RAW = CONSUMER_MODE_LED;
-    COLOR_CONSUMER_CONFIG = hexToRGB(CONSUMER_MODE_LED, LED_BRIGHTNESS_PERCENT);
-    COLOR_KEYBOARD_CONFIG = hexToRGB(KEYBOARD_MODE_LED, LED_BRIGHTNESS_PERCENT);
+    for (uint8_t i = 0; i < MODE_COUNT; i++)
+      COLOR_CONFIG[i] = hexToRGB(COLOR_RAW[i], LED_BRIGHTNESS_PERCENT);
     return;
   }
 
@@ -489,10 +503,8 @@ void loadSettings() {
   if (error) {
     Serial.print("JSON parse error: ");
     Serial.println(error.c_str());
-    KEYBOARD_COLOR_RAW = KEYBOARD_MODE_LED;
-    CONSUMER_COLOR_RAW = CONSUMER_MODE_LED;
-    COLOR_CONSUMER_CONFIG = hexToRGB(CONSUMER_MODE_LED, LED_BRIGHTNESS_PERCENT);
-    COLOR_KEYBOARD_CONFIG = hexToRGB(KEYBOARD_MODE_LED, LED_BRIGHTNESS_PERCENT);
+    for (uint8_t i = 0; i < MODE_COUNT; i++)
+      COLOR_CONFIG[i] = hexToRGB(COLOR_RAW[i], LED_BRIGHTNESS_PERCENT);
     return;
   }
 
@@ -568,11 +580,7 @@ Adafruit_NeoPixel strip(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 // Update LED based on current mode
 void updateLED()
 {
-  if (currentMode == 0) {
-    strip.setPixelColor(0, COLOR_KEYBOARD_CONFIG); // Mode 1
-  } else {
-    strip.setPixelColor(0, COLOR_CONSUMER_CONFIG); // Mode 2
-  }
+  strip.setPixelColor(0, COLOR_CONFIG[currentMode < MODE_COUNT ? currentMode : 0]);
   strip.show();
 }
 
@@ -636,7 +644,7 @@ void loop() {
 
     // Check for mode change button
     if (code == mode_change) {
-      currentMode = (currentMode + 1) % MODE_COUNT;
+      currentMode = (currentMode + 1) % numModes;
       updateLED();
       Serial.print("Mode switched: ");
       Serial.println(currentMode == 0 ? "Mode 1" : "Mode 2");

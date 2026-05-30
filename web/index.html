@@ -29,9 +29,8 @@
 
         <div class="layout">
           <div class="toolbar">
-            <div class="tabs">
-              <button class="tab active" data-mode="0">Mode 1</button>
-              <button class="tab" data-mode="1">Mode 2</button>
+            <div class="tabs" id="modeTabs">
+              <!-- Rendered by JS -->
             </div>
             <label class="mode-color-label" title="LED color for this mode">
               LED Color
@@ -42,6 +41,19 @@
               <button id="clearBtn" class="ghost" disabled>Clear Slot</button>
               <button id="toggleJsonBtn" class="ghost">JSON</button>
             </div>
+          </div>
+
+          <div class="layout-bar">
+            <select id="layoutSelect" class="layout-select"></select>
+            <button id="addLayoutBtn" class="ghost">+ Layout</button>
+          </div>
+
+          <div id="newLayoutForm" class="new-layout-form">
+            <input id="layoutNameInput" type="text" placeholder="Name (e.g. 3×3 Remote)" />
+            <input id="layoutColsInput" type="number" min="1" max="10" placeholder="Cols" />
+            <input id="layoutCountInput" type="number" min="1" max="20" placeholder="Buttons" />
+            <button id="saveLayoutBtn">Save Layout</button>
+            <button id="cancelLayoutBtn" class="ghost">Cancel</button>
           </div>
 
           <div class="content">
@@ -58,7 +70,53 @@
               </label>
               <label>
                 Key / Usage
-                <input id="keyInput" type="text" placeholder="0xE9 or a" />
+                <select id="keyPresetSelect">
+                  <option value="custom">Custom&hellip;</option>
+                  <optgroup label="Media">
+                    <option value="consumer:0xE9">Volume Up</option>
+                    <option value="consumer:0xEA">Volume Down</option>
+                    <option value="consumer:0xE2">Mute</option>
+                    <option value="consumer:0xCD">Play / Pause</option>
+                    <option value="consumer:0xB5">Next Track</option>
+                    <option value="consumer:0xB6">Previous Track</option>
+                    <option value="consumer:0xB7">Stop</option>
+                    <option value="consumer:0xB3">Fast Forward</option>
+                    <option value="consumer:0xB4">Rewind</option>
+                  </optgroup>
+                  <optgroup label="Navigation">
+                    <option value="keyboard:0x4F">Arrow Right</option>
+                    <option value="keyboard:0x50">Arrow Left</option>
+                    <option value="keyboard:0x52">Arrow Up</option>
+                    <option value="keyboard:0x51">Arrow Down</option>
+                    <option value="keyboard:0x4A">Home</option>
+                    <option value="keyboard:0x4D">End</option>
+                    <option value="keyboard:0x4B">Page Up</option>
+                    <option value="keyboard:0x4E">Page Down</option>
+                  </optgroup>
+                  <optgroup label="Common">
+                    <option value="keyboard:0x28">Enter</option>
+                    <option value="keyboard:0x29">Escape</option>
+                    <option value="keyboard:0x2A">Backspace</option>
+                    <option value="keyboard:0x2B">Tab</option>
+                    <option value="keyboard:0x4C">Delete</option>
+                    <option value="keyboard:0x2C">Space</option>
+                  </optgroup>
+                  <optgroup label="Function">
+                    <option value="keyboard:0x3A">F1</option>
+                    <option value="keyboard:0x3B">F2</option>
+                    <option value="keyboard:0x3C">F3</option>
+                    <option value="keyboard:0x3D">F4</option>
+                    <option value="keyboard:0x3E">F5</option>
+                    <option value="keyboard:0x3F">F6</option>
+                    <option value="keyboard:0x40">F7</option>
+                    <option value="keyboard:0x41">F8</option>
+                    <option value="keyboard:0x42">F9</option>
+                    <option value="keyboard:0x43">F10</option>
+                    <option value="keyboard:0x44">F11</option>
+                    <option value="keyboard:0x45">F12</option>
+                  </optgroup>
+                </select>
+                <input id="keyInput" type="text" placeholder="0xE9 or a" class="key-custom" />
               </label>
               <label>
                 Type
@@ -91,7 +149,13 @@
         </div>
       </section>
 
-      <section class="log" id="log"></section>
+      <section class="log-section">
+        <button class="log-toggle" id="logToggle">
+          <span>Console Log</span>
+          <span class="chevron">&#9660;</span>
+        </button>
+        <div class="log" id="log"></div>
+      </section>
     </main>
 
     <script src="app.js"></script>

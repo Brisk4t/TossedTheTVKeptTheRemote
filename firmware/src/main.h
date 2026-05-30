@@ -7,20 +7,24 @@
 
 // IR Settings (defaults - overridden by JSON if present)
 #define MODE_CHANGE_CODE 0xC40387EE
-#define IR_RECEIVE_PIN 1
+#define IR_RECEIVE_PIN 28
 #define HANDLE_REPEAT true
 #define REPEAT_INITIAL_DELAY_REPORTS 5 // Count delay in number of reports
 
 // LED Settings (defaults - overridden by JSON if present)
-#define LED_PIN        16
-#define KEYBOARD_MODE_LED   0x290118  
-#define CONSUMER_MODE_LED   0x012329 
+#define LED_PIN              16
 #define LED_BRIGHTNESS_PERCENT 10
+// Default LED colors per mode (RGB hex)
+#define DEFAULT_MODE_COLOR_0 0x290118
+#define DEFAULT_MODE_COLOR_1 0x012329
+#define DEFAULT_MODE_COLOR_2 0x122900
+#define DEFAULT_MODE_COLOR_3 0x291200
+#define DEFAULT_MODE_COLOR_4 0x001229
 
 // LittleFS config file
 #define MAPPINGS_CONFIG_FILE "/settings.json"
 #define MAX_MAPPINGS 20
-#define MODE_COUNT 2
+#define MODE_COUNT 5
 
 
 enum IRSlotType : uint8_t {
