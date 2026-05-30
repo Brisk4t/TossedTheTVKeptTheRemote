@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <IRremote.hpp>
-#include <Keyboard.h>
+#include <Adafruit_TinyUSB.h>
 #include <Adafruit_NeoPixel.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -40,4 +40,5 @@ extern IRKeyboard keyboardMap[MAX_MAPPINGS];
 extern uint8_t keyboardMapCount;
 extern IRConsumer consumerMap[MAX_MAPPINGS];
 extern uint8_t consumerMapCount;
+
 

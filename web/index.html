@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IR HID Config</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <h1>IR HID Config</h1>
+          <p class="lede">Live remap your IR codes and save them to the device.</p>
+        </div>
+        <div class="status" id="status">Disconnected</div>
+      </header>
+
+      <section class="panel">
+        <div class="actions">
+          <button id="connectBtn">Connect</button>
+          <button id="disconnectBtn" class="ghost" disabled>Disconnect</button>
+          <button id="getBtn" disabled>Load From Device</button>
+          <button id="applyBtn" disabled>Apply (RAM)</button>
+          <button id="saveBtn" disabled>Apply + Save</button>
+        </div>
+
+        <div class="layout">
+          <div class="toolbar">
+            <div class="tabs">
+              <button class="tab active" data-layer="keyboard">Keyboard</button>
+              <button class="tab" data-layer="consumer">Consumer</button>
+            </div>
+            <div class="subactions">
+              <button id="learnBtn" class="ghost" disabled>Learn IR</button>
+              <button id="clearBtn" class="ghost" disabled>Clear Slot</button>
+              <button id="toggleJsonBtn" class="ghost">JSON</button>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="remote" id="remoteGrid"></div>
+            <aside class="detail" id="detailPanel">
+              <h2>Selected Button</h2>
+              <label>
+                Label
+                <input id="labelInput" type="text" placeholder="Play / Volume / Up" />
+              </label>
+              <label>
+                IR Code
+                <input id="irInput" type="text" placeholder="0x00000000" disabled />
+              </label>
+              <label>
+                Key / Usage
+                <input id="keyInput" type="text" placeholder="0xE9 or a" />
+              </label>
+              <div class="hint">
+                Click Learn IR, then press the remote button.
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="editor-wrap" id="jsonPanel">
+          <textarea id="jsonEditor" spellcheck="false"></textarea>
+          <aside class="notes">
+            <h2>Protocol</h2>
+            <p>Uses Web Serial with a JSON line protocol.</p>
+            <ul>
+              <li><span>get</span> read current settings</li>
+              <li><span>set</span> apply in RAM only</li>
+              <li><span>set + persist</span> apply and save</li>
+              <li><span>save</span> save current RAM state</li>
+              <li><span>learn</span> capture the next IR code</li>
+            </ul>
+            <div class="hint">
+              Tip: JSON stays compatible with settings.json.
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="log" id="log"></section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
