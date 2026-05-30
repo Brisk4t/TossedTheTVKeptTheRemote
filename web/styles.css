@@ -53,13 +53,33 @@ h1 {
   margin-top: 6px;
 }
 
-.status {
-  padding: 10px 16px;
+.connect-status-btn {
+  padding: 10px 20px;
   border-radius: 999px;
+  background: var(--accent);
+  color: #1d1405;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 10px 20px rgba(224, 180, 92, 0.25);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.connect-status-btn:hover {
+  box-shadow: 0 12px 24px rgba(224, 180, 92, 0.4);
+}
+
+.connect-status-btn.is-connected {
   background: rgba(123, 216, 214, 0.12);
   color: var(--accent-2);
   border: 1px solid rgba(123, 216, 214, 0.3);
-  font-weight: 600;
+  box-shadow: none;
+}
+
+.connect-status-btn.is-connected:hover {
+  background: rgba(123, 216, 214, 0.22);
+  border-color: rgba(123, 216, 214, 0.55);
+  transform: none;
+  box-shadow: none;
 }
 
 .panel {
@@ -70,20 +90,9 @@ h1 {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 18px;
-  align-items: center;
-}
 
-#disconnectBtn {
-  display: none;
-}
 
 .apply-btn {
-  margin-left: auto;
   background: #3ecf6a;
   color: #041a0d;
   box-shadow: 0 10px 20px rgba(62, 207, 106, 0.25);
@@ -98,6 +107,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.layout.locked {
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
 }
 
 .toolbar {
@@ -145,8 +160,8 @@ h1 {
 /* ── Dynamic tabs ────────────────────────────────────────── */
 .tab.tab-add {
   background: transparent;
-  color: var(--accent-2);
-  border: 1px dashed rgba(123, 216, 214, 0.4);
+  color: var(--muted);
+  border: 1px dashed rgba(154, 167, 178, 0.35);
   box-shadow: none;
   font-size: 1.1rem;
   line-height: 1;
@@ -154,7 +169,8 @@ h1 {
 }
 
 .tab.tab-add:hover {
-  background: rgba(123, 216, 214, 0.08);
+  background: rgba(154, 167, 178, 0.08);
+  color: var(--text);
   box-shadow: none;
   transform: none;
 }
@@ -320,7 +336,6 @@ h1 {
 .remote-tabs {
   display: flex;
   gap: 2px;
-  flex: 1;
 }
 
 .layout-tab {
@@ -357,12 +372,14 @@ h1 {
 
 .layout-tab-add {
   border-style: dashed;
-  color: var(--accent-2);
+  border-color: rgba(154, 167, 178, 0.35);
+  color: var(--muted);
   padding: 7px 13px;
 }
 
 .layout-tab-add:hover {
-  background: rgba(123, 216, 214, 0.08);
+  background: rgba(154, 167, 178, 0.08);
+  color: var(--text);
   transform: none;
   box-shadow: none;
 }
@@ -453,7 +470,8 @@ h1 {
   gap: 6px;
   color: var(--text);
   font-weight: 600;
-  transition: transform 0.15s ease, border 0.2s ease;
+  box-shadow: 0 2px 6px rgba(224, 180, 92, 0.28);
+  transition: transform 0.15s ease, border 0.2s ease, box-shadow 0.2s ease;
 }
 
 .slot small {
@@ -463,8 +481,8 @@ h1 {
 }
 
 .slot.active {
-  border: 1px solid rgba(123, 216, 214, 0.8);
-  box-shadow: 0 0 0 2px rgba(123, 216, 214, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
   transform: translateY(-1px);
 }
 
@@ -807,8 +825,8 @@ textarea {
   margin-top: auto;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px dashed rgba(123, 216, 214, 0.3);
-  color: var(--accent-2);
+  border: 1px dashed rgba(154, 167, 178, 0.3);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 

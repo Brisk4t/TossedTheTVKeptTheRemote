@@ -1,5 +1,4 @@
 // ── DOM refs ──────────────────────────────────────────────────
-const statusEl        = document.getElementById("status");
 const logEl           = document.getElementById("log");
 const logToggleBtn    = document.getElementById("logToggle");
 const editor          = document.getElementById("jsonEditor");
@@ -23,15 +22,16 @@ const addLayoutBtn         = document.getElementById("addLayoutBtn");
 const editLayoutBtn   = document.getElementById("editLayoutBtn");
 const layoutEditBar   = document.getElementById("layoutEditBar");
 const addSlotBtn      = document.getElementById("addSlotBtn");
+const autoAddBtn      = document.getElementById("autoAddBtn");
+const layoutEditHint  = document.getElementById("layoutEditHint");
 const doneEditBtn     = document.getElementById("doneEditBtn");
 const newLayoutForm   = document.getElementById("newLayoutForm");
 const layoutNameInput = document.getElementById("layoutNameInput");
 const saveLayoutBtn   = document.getElementById("saveLayoutBtn");
 const cancelLayoutBtn = document.getElementById("cancelLayoutBtn");
 const detailTitle     = document.getElementById("detailTitle");
+const mainLayout      = document.getElementById("mainLayout");
 const connectBtn      = document.getElementById("connectBtn");
-const disconnectBtn   = document.getElementById("disconnectBtn");
-const getBtn          = document.getElementById("getBtn");
 const applyBtn        = document.getElementById("applyBtn");
 
 // ── Constants ─────────────────────────────────────────────────
@@ -43,6 +43,37 @@ const LABELS_KEY   = "ir-hid-labels";
 const DEFAULT_MODE_COLORS = [
   "0xFF0040", "0x0080FF", "0x00FF80", "0xFF8000", "0xFF00FF",
 ];
+
+// browser event.key → USB HID {type, key}
+const KEY_TO_HID = {
+  "AudioVolumeUp":      { type: "consumer", key: "0xE9" },
+  "AudioVolumeDown":    { type: "consumer", key: "0xEA" },
+  "AudioVolumeMute":    { type: "consumer", key: "0xE2" },
+  "MediaPlayPause":     { type: "consumer", key: "0xCD" },
+  "MediaTrackNext":     { type: "consumer", key: "0xB5" },
+  "MediaTrackPrevious": { type: "consumer", key: "0xB6" },
+  "MediaStop":          { type: "consumer", key: "0xB7" },
+  "ArrowRight":         { type: "keyboard", key: "0x4F" },
+  "ArrowLeft":          { type: "keyboard", key: "0x50" },
+  "ArrowUp":            { type: "keyboard", key: "0x52" },
+  "ArrowDown":          { type: "keyboard", key: "0x51" },
+  "Home":               { type: "keyboard", key: "0x4A" },
+  "End":                { type: "keyboard", key: "0x4D" },
+  "PageUp":             { type: "keyboard", key: "0x4B" },
+  "PageDown":           { type: "keyboard", key: "0x4E" },
+  "Enter":              { type: "keyboard", key: "0x28" },
+  "Escape":             { type: "keyboard", key: "0x29" },
+  "Backspace":          { type: "keyboard", key: "0x2A" },
+  "Tab":                { type: "keyboard", key: "0x2B" },
+  "Delete":             { type: "keyboard", key: "0x4C" },
+  " ":                  { type: "keyboard", key: "0x2C" },
+  "F1":  { type: "keyboard", key: "0x3A" }, "F2":  { type: "keyboard", key: "0x3B" },
+  "F3":  { type: "keyboard", key: "0x3C" }, "F4":  { type: "keyboard", key: "0x3D" },
+  "F5":  { type: "keyboard", key: "0x3E" }, "F6":  { type: "keyboard", key: "0x3F" },
+  "F7":  { type: "keyboard", key: "0x40" }, "F8":  { type: "keyboard", key: "0x41" },
+  "F9":  { type: "keyboard", key: "0x42" }, "F10": { type: "keyboard", key: "0x43" },
+  "F11": { type: "keyboard", key: "0x44" }, "F12": { type: "keyboard", key: "0x45" },
+};
 
 // ── State ─────────────────────────────────────────────────────
 let port, reader, writer;
@@ -58,6 +89,10 @@ let draggedBtnIdx       = null;   // index in buttons array being dragged
 let labels = {};
 
 let settings = null;
+let savedSettingsJSON = null;
+let autoAddActive = false;
+let autoAddStep   = null;   // "ir" | "hid"
+let autoAddIrCode = null;
 
 // ── Label helpers ─────────────────────────────────────────────
 function getLabel(irCode) {
@@ -122,6 +157,25 @@ function updateModeColorPicker() {
   ledBrightnessValue.textContent = `${pct}%`;
 }
 
+// ── Key helpers ───────────────────────────────────────────────
+function keyEventToHid(e) {
+  if (KEY_TO_HID[e.key]) return KEY_TO_HID[e.key];
+  const k = e.key.toLowerCase();
+  if (k.length === 1 && k >= "a" && k <= "z")
+    return { type: "keyboard", key: "0x" + (0x04 + k.charCodeAt(0) - 97).toString(16).toUpperCase() };
+  if (k >= "1" && k <= "9")
+    return { type: "keyboard", key: "0x" + (0x1E + k.charCodeAt(0) - 49).toString(16).toUpperCase() };
+  if (k === "0") return { type: "keyboard", key: "0x27" };
+  return null;
+}
+function getHidLabel(type, key) {
+  const target = `${type}:${normalizeHex(key)}`.toUpperCase();
+  for (const opt of keyPresetSelect.options) {
+    if (opt.value.toUpperCase() === target) return opt.textContent;
+  }
+  return null;
+}
+
 // ── Preset helpers ────────────────────────────────────────────
 function normalizeHex(hex) {
   // "0x00E9" → "0xE9", "0x04" → "0x4", "0x0" → "0x0"
@@ -160,14 +214,12 @@ logToggleBtn.addEventListener("click", () => {
 
 // ── Connection ────────────────────────────────────────────────
 function setConnected(connected) {
-  statusEl.textContent   = connected ? "Connected" : "Disconnected";
-  statusEl.style.color   = connected ? "#7bd8d6" : "#e0b45c";
-  connectBtn.style.display    = connected ? "none" : "";
-  disconnectBtn.style.display = connected ? "" : "none";
-  getBtn.disabled    = !connected;
-  applyBtn.disabled  = !connected;
-  learnBtn.disabled  = !connected;
-  clearBtn.disabled  = !connected;
+  connectBtn.textContent = connected ? "Connected" : "Click to Connect";
+  connectBtn.classList.toggle("is-connected", connected);
+  mainLayout.classList.toggle("locked", !connected);
+  checkApplyBtn();
+  learnBtn.disabled = !connected;
+  clearBtn.disabled = !connected;
 }
 
 async function connect() {
@@ -224,10 +276,19 @@ function handleResponse(line) {
     renderGrid();
     if (selectedBtnIdx !== null) selectButton(selectedBtnIdx);
     updateModeColorPicker();
+    savedSettingsJSON = JSON.stringify(settings);
+    checkApplyBtn();
     return;
   }
 
   if (payload.event === "learn") {
+    if (autoAddActive && autoAddStep === "ir") {
+      autoAddIrCode = payload.code;
+      autoAddStep = "hid";
+      updateAutoAddHint();
+      logLine(`Auto-Add: got IR ${payload.code} — press a keyboard key.`);
+      return;
+    }
     if (!learnArmed) return;
     const layout = getCurrentLayout();
     const btn = layout.buttons[selectedBtnIdx];
@@ -271,10 +332,20 @@ async function applySettings() {
     logLine("JSON parse error — sending current settings.");
   }
   syncEditor();
+  savedSettingsJSON = JSON.stringify(settings);
+  checkApplyBtn();
   await sendCommand({ op: "set", data: settings });
 }
 
-function syncEditor() { editor.value = JSON.stringify(settings, null, 2); }
+function syncEditor() {
+  editor.value = JSON.stringify(settings, null, 2);
+  checkApplyBtn();
+}
+
+function checkApplyBtn() {
+  applyBtn.disabled = !port || savedSettingsJSON === null ||
+                      JSON.stringify(settings) === savedSettingsJSON;
+}
 
 // ── Settings ──────────────────────────────────────────────────
 function defaultSettings() {
@@ -471,6 +542,7 @@ function renderLayoutTabs() {
   const tabsEl = document.getElementById("layoutTabs");
   tabsEl.innerHTML = "";
   (settings?.layouts || []).forEach((layout, i) => {
+
     const btn = document.createElement("button");
     btn.className = "layout-tab" + (i === currentLayoutIndex ? " active" : "");
     btn.textContent = layout.name || `Layout ${i + 1}`;
@@ -482,6 +554,7 @@ function renderLayoutTabs() {
     });
     tabsEl.appendChild(btn);
   });
+  tabsEl.appendChild(addLayoutBtn);
 }
 
 function startRenameLayout(index) {
@@ -741,16 +814,50 @@ async function requestLearn() {
 // ── Layout edit mode ──────────────────────────────────────────
 function setLayoutEditMode(active) {
   layoutEditMode = active;
+  if (!active) stopAutoAdd();
   editLayoutBtn.style.display = active ? "none" : "";
   layoutEditBar.style.display = active ? "flex" : "none";
   renderLayoutTabs();
   renderGrid();
 }
 
+function updateAutoAddHint() {
+  if (!autoAddActive) {
+    layoutEditHint.textContent = "Drag to rearrange • × to remove";
+    return;
+  }
+  layoutEditHint.textContent = autoAddStep === "ir"
+    ? "Press a remote button…"
+    : "Press the keyboard key…";
+}
+
+function startAutoAdd() {
+  if (settings.modes[currentModeIndex].slots.length >= MAX_MAPPINGS) {
+    logLine("Auto-Add: slot limit reached."); return;
+  }
+  autoAddActive = true;
+  autoAddStep   = "ir";
+  autoAddIrCode = null;
+  addSlotBtn.disabled    = true;
+  autoAddBtn.textContent = "Stop";
+  updateAutoAddHint();
+  sendCommand({ op: "learn" });
+  logLine("Auto-Add: press a remote button…");
+}
+
+function stopAutoAdd() {
+  if (!autoAddActive) return;
+  autoAddActive = false;
+  autoAddStep   = null;
+  autoAddIrCode = null;
+  addSlotBtn.disabled    = false;
+  autoAddBtn.textContent = "Auto-Add";
+  updateAutoAddHint();
+  logLine("Auto-Add stopped.");
+}
+
 // ── Event listeners ───────────────────────────────────────────
-connectBtn.addEventListener("click", connect);
-disconnectBtn.addEventListener("click", disconnect);
-getBtn.addEventListener("click", getSettings);
+connectBtn.addEventListener("click", () => { if (port) disconnect(); else connect(); });
 applyBtn.addEventListener("click", applySettings);
 learnBtn.addEventListener("click", requestLearn);
 clearBtn.addEventListener("click", clearSlot);
@@ -788,7 +895,46 @@ ledBrightnessSlider.addEventListener("input", () => {
 
 editLayoutBtn.addEventListener("click", () => setLayoutEditMode(!layoutEditMode));
 doneEditBtn.addEventListener("click",   () => setLayoutEditMode(false));
-addSlotBtn.addEventListener("click",    addButtonToLayout);
+addSlotBtn.addEventListener("click", addButtonToLayout);
+autoAddBtn.addEventListener("click", () => { if (autoAddActive) stopAutoAdd(); else startAutoAdd(); });
+
+document.addEventListener("keydown", (e) => {
+  if (!autoAddActive || autoAddStep !== "hid") return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+  const hid = keyEventToHid(e);
+  if (!hid) { logLine(`Auto-Add: unrecognized key "${e.key}" — try again.`); return; }
+  e.preventDefault();
+
+  const layout = getCurrentLayout();
+  const occupied = new Set(layout.buttons.map(b => `${b.x},${b.y}`));
+  const maxX = layout.buttons.length > 0 ? Math.max(...layout.buttons.map(b => b.x)) + 1 : 5;
+  let x = 0, y = 0;
+  while (occupied.has(`${x},${y}`)) { x++; if (x >= maxX) { x = 0; y++; } }
+  layout.buttons.push({ irCode: autoAddIrCode, x, y });
+
+  setSlotByIrCode(currentModeIndex, autoAddIrCode, { type: hid.type, key: hid.key });
+
+  const label = getHidLabel(hid.type, hid.key);
+  if (label) setLabel(autoAddIrCode, label);
+
+  syncEditor();
+  saveLabels();
+  renderGrid();
+  logLine(`Auto-Add: ${autoAddIrCode} → ${hid.type}:${hid.key}${label ? ` (${label})` : ""}`);
+
+  if (settings.modes[currentModeIndex].slots.length >= MAX_MAPPINGS) {
+    logLine("Auto-Add: slot limit reached — stopping.");
+    stopAutoAdd();
+    return;
+  }
+
+  autoAddStep   = "ir";
+  autoAddIrCode = null;
+  updateAutoAddHint();
+  sendCommand({ op: "learn" });
+  logLine("Auto-Add: press next remote button…");
+});
 
 addLayoutBtn.addEventListener("click", () => newLayoutForm.classList.toggle("visible"));
 cancelLayoutBtn.addEventListener("click", () => newLayoutForm.classList.remove("visible"));

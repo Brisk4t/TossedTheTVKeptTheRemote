@@ -16,22 +16,16 @@
           <h1>IR HID Config</h1>
           <p class="lede">Live remap your IR codes and save them to the device.</p>
         </div>
-        <div class="status" id="status">Disconnected</div>
+        <button id="connectBtn" class="connect-status-btn">Click to Connect</button>
       </header>
 
       <section class="panel">
-        <div class="actions">
-          <button id="connectBtn">Connect</button>
-          <button id="disconnectBtn" class="ghost">Disconnect</button>
-          <button id="getBtn" disabled>Load From Device</button>
-          <button id="applyBtn" class="apply-btn" disabled>Apply</button>
-        </div>
-
-        <div class="layout">
+        <div class="layout" id="mainLayout">
           <div class="toolbar">
             <div class="tabs" id="modeTabs">
               <!-- Rendered by JS -->
             </div>
+            <button id="applyBtn" class="apply-btn" disabled>Apply</button>
           </div>
 
           <div class="content">
@@ -39,8 +33,8 @@
               <div class="remote-tabbar">
                 <div id="layoutTabs" class="remote-tabs">
                   <!-- Rendered by JS -->
+                  <button id="addLayoutBtn" class="layout-tab layout-tab-add">+</button>
                 </div>
-                <button id="addLayoutBtn" class="layout-tab layout-tab-add">+</button>
               </div>
               <div id="newLayoutForm" class="new-layout-form">
                 <input id="layoutNameInput" type="text" placeholder="Layout name" />
@@ -52,7 +46,8 @@
                   <button id="editLayoutBtn" class="ghost layout-edit-btn">Edit Layout</button>
                   <div id="layoutEditBar" class="layout-edit-bar">
                     <button id="addSlotBtn" class="ghost">+ Button</button>
-                    <span class="layout-edit-hint">Drag to rearrange &bull; &times; to remove</span>
+                    <button id="autoAddBtn" class="ghost">Auto-Add</button>
+                    <span id="layoutEditHint" class="layout-edit-hint">Drag to rearrange &bull; &times; to remove</span>
                     <button id="doneEditBtn">Done</button>
                   </div>
                 </div>
