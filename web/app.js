@@ -15,6 +15,10 @@ const connectBtn = document.getElementById("connectBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
 const getBtn = document.getElementById("getBtn");
 const applyBtn = document.getElementById("applyBtn");
+const modeColorPicker = document.getElementById("modeColorPicker");
+
+// Maps mode index → led settings key
+const modeColorKeys = ["keyboardModeColor", "consumerModeColor"];
 
 let port;
 let reader;
@@ -30,6 +34,22 @@ const STORAGE_KEY = "ir-hid-layout";
 const defaultLabels = Array.from({ length: MAX_MAPPINGS }, (_, i) => `B${i + 1}`);
 let labels = [...defaultLabels];
 let settings = null;
+
+function settingsColorToCss(hex) {
+  // "0x290118" or "0x00290118" → "#290118"
+  return "#" + hex.replace(/^0x/i, "").slice(-6).padStart(6, "0");
+}
+
+function cssColorToSettings(css) {
+  // "#290118" → "0x290118"
+  return "0x" + css.replace("#", "").toUpperCase();
+}
+
+function updateModeColorPicker() {
+  const key = modeColorKeys[currentModeIndex];
+  const raw = settings?.led?.[key] ?? "0x000000";
+  modeColorPicker.value = settingsColorToCss(raw);
+}
 
 function logLine(text) {
   const line = document.createElement("div");
@@ -125,6 +145,7 @@ function handleResponse(line) {
     editor.value = JSON.stringify(payload.data, null, 2);
     renderGrid();
     selectSlot(selectedIndex);
+    updateModeColorPicker();
     return;
   }
 
@@ -344,7 +365,14 @@ document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.add("active");
     currentModeIndex = Number(tab.dataset.mode || 0);
     selectSlot(selectedIndex);
+    updateModeColorPicker();
   });
+});
+
+modeColorPicker.addEventListener("input", () => {
+  if (!settings.led) settings.led = {};
+  const key = modeColorKeys[currentModeIndex];
+  settings.led[key] = cssColorToSettings(modeColorPicker.value);
 });
 
 labelInput.addEventListener("input", updateSlotFromInputs);
@@ -357,3 +385,4 @@ settings = defaultSettings();
 editor.value = JSON.stringify(settings, null, 2);
 renderGrid();
 selectSlot(0);
+updateModeColorPicker();

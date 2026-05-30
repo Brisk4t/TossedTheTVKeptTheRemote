@@ -119,6 +119,38 @@ h1 {
   gap: 10px;
 }
 
+.mode-color-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+#modeColorPicker {
+  width: 44px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(10, 15, 20, 0.85);
+  cursor: pointer;
+  padding: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+#modeColorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 5px;
+}
+
+#modeColorPicker::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+
 .content {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
