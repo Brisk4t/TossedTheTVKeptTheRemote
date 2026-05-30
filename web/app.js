@@ -13,8 +13,13 @@ const learnBtn        = document.getElementById("learnBtn");
 const clearBtn        = document.getElementById("clearBtn");
 const jsonPanel       = document.getElementById("jsonPanel");
 const toggleJsonBtn   = document.getElementById("toggleJsonBtn");
-const modeColorPicker = document.getElementById("modeColorPicker");
-const addLayoutBtn    = document.getElementById("addLayoutBtn");
+const modeColorPicker      = document.getElementById("modeColorPicker");
+const modeColorSwatch      = document.getElementById("modeColorSwatch");
+const hueDropdown          = document.getElementById("hueDropdown");
+const huePickerWrap        = document.getElementById("huePickerWrap");
+const ledBrightnessSlider  = document.getElementById("ledBrightnessSlider");
+const ledBrightnessValue   = document.getElementById("ledBrightnessValue");
+const addLayoutBtn         = document.getElementById("addLayoutBtn");
 const editLayoutBtn   = document.getElementById("editLayoutBtn");
 const layoutEditBar   = document.getElementById("layoutEditBar");
 const addSlotBtn      = document.getElementById("addSlotBtn");
@@ -23,6 +28,7 @@ const newLayoutForm   = document.getElementById("newLayoutForm");
 const layoutNameInput = document.getElementById("layoutNameInput");
 const saveLayoutBtn   = document.getElementById("saveLayoutBtn");
 const cancelLayoutBtn = document.getElementById("cancelLayoutBtn");
+const detailTitle     = document.getElementById("detailTitle");
 const connectBtn      = document.getElementById("connectBtn");
 const disconnectBtn   = document.getElementById("disconnectBtn");
 const getBtn          = document.getElementById("getBtn");
@@ -33,8 +39,9 @@ const MAX_MAPPINGS = 20;
 const MAX_MODES    = 5;
 const LABELS_KEY   = "ir-hid-labels";
 
+// Vivid full-brightness hues — firmware scales them down with brightnessPercent
 const DEFAULT_MODE_COLORS = [
-  "0x290118", "0x012329", "0x122900", "0x291200", "0x001229",
+  "0xFF0040", "0x0080FF", "0x00FF80", "0xFF8000", "0xFF00FF",
 ];
 
 // ── State ─────────────────────────────────────────────────────
@@ -67,14 +74,52 @@ function loadLabels() {
 function settingsColorToCss(hex) {
   return "#" + hex.replace(/^0x/i, "").slice(-6).padStart(6, "0");
 }
+
+function hueToHex(hue) {
+  const h = ((hue % 360) + 360) % 360 / 360;
+  const q = 1, p = 0; // HSL(h, 100%, 50%)
+  const ch = (t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+  const r = Math.round(ch(h + 1/3) * 255);
+  const g = Math.round(ch(h)       * 255);
+  const b = Math.round(ch(h - 1/3) * 255);
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+
+function hexToHue(css) {
+  const r = parseInt(css.slice(1,3), 16) / 255;
+  const g = parseInt(css.slice(3,5), 16) / 255;
+  const b = parseInt(css.slice(5,7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 0;
+  let h;
+  if      (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else                h = (r - g) / d + 4;
+  return Math.round(h * 60) % 360;
+}
 function cssColorToSettings(css) {
   return "0x" + css.replace("#", "").toUpperCase();
 }
 function updateModeColorPicker() {
   const colors = settings?.led?.modeColors;
   const raw = (colors && colors[currentModeIndex])
-    ?? DEFAULT_MODE_COLORS[currentModeIndex] ?? "0x000000";
-  modeColorPicker.value = settingsColorToCss(raw);
+    ?? DEFAULT_MODE_COLORS[currentModeIndex] ?? "0xFF0040";
+  const hue = hexToHue(settingsColorToCss(raw));
+  const hueColor = hueToHex(hue);
+  modeColorPicker.value = hue;
+  modeColorPicker.style.setProperty("--thumb-color", hueColor);
+  modeColorSwatch.style.background = hueColor;
+  ledBrightnessSlider.style.accentColor = hueColor;
+
+  const pct = settings?.led?.brightnessPercent ?? 10;
+  ledBrightnessSlider.value    = pct;
+  ledBrightnessValue.textContent = `${pct}%`;
 }
 
 // ── Preset helpers ────────────────────────────────────────────
@@ -117,11 +162,12 @@ logToggleBtn.addEventListener("click", () => {
 function setConnected(connected) {
   statusEl.textContent   = connected ? "Connected" : "Disconnected";
   statusEl.style.color   = connected ? "#7bd8d6" : "#e0b45c";
-  disconnectBtn.disabled = !connected;
-  getBtn.disabled        = !connected;
-  applyBtn.disabled      = !connected;
-  learnBtn.disabled      = !connected;
-  clearBtn.disabled      = !connected;
+  connectBtn.style.display    = connected ? "none" : "";
+  disconnectBtn.style.display = connected ? "" : "none";
+  getBtn.disabled    = !connected;
+  applyBtn.disabled  = !connected;
+  learnBtn.disabled  = !connected;
+  clearBtn.disabled  = !connected;
 }
 
 async function connect() {
@@ -133,6 +179,7 @@ async function connect() {
     setConnected(true);
     logLine("Connected to device.");
     startReadLoop();
+    await getSettings();
   } catch (err) { logLine(`Connect failed: ${err.message}`); }
 }
 
@@ -241,7 +288,7 @@ function defaultSettings() {
     },
     led: {
       pin: 16,
-      modeColors: ["0x290118", "0x012329"],
+      modeColors: ["0xFF0040", "0x0080FF"],
       brightnessPercent: 10,
     },
     modes: [
@@ -346,8 +393,21 @@ function renderTabs() {
   (settings?.modes || []).forEach((mode, i) => {
     const btn = document.createElement("button");
     btn.className = "tab" + (i === currentModeIndex ? " active" : "");
-    btn.textContent = mode.name || `Mode ${i + 1}`;
-    btn.addEventListener("click", () => switchMode(i));
+    btn.title = "Click active tab to rename";
+
+    const dotColor = settingsColorToCss(
+      settings?.led?.modeColors?.[i] ?? DEFAULT_MODE_COLORS[i] ?? "0xFF0040"
+    );
+    const dot = document.createElement("span");
+    dot.className = "mode-color-dot";
+    dot.style.background = dotColor;
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(mode.name || `Mode ${i + 1}`));
+
+    btn.addEventListener("click", () => {
+      if (i === currentModeIndex) startRenameMode(i);
+      else switchMode(i);
+    });
     tabsEl.appendChild(btn);
   });
   const addBtn = document.createElement("button");
@@ -357,6 +417,35 @@ function renderTabs() {
   addBtn.disabled = (settings?.modes?.length ?? 0) >= MAX_MODES;
   addBtn.addEventListener("click", addMode);
   tabsEl.appendChild(addBtn);
+}
+
+function startRenameMode(index) {
+  const tabsEl = document.getElementById("modeTabs");
+  const btn = [...tabsEl.querySelectorAll(".tab:not(.tab-add)")][index];
+  if (!btn || btn.querySelector("input")) return;
+
+  const prev = settings.modes[index].name || `Mode ${index + 1}`;
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "tab-rename-input";
+  inp.value = prev;
+  btn.textContent = "";
+  btn.appendChild(inp);
+  inp.focus();
+  inp.select();
+
+  const commit = () => {
+    const name = inp.value.trim() || prev;
+    settings.modes[index].name = name;
+    syncEditor();
+    renderTabs();
+  };
+  inp.addEventListener("blur",    commit);
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter")  { inp.blur(); }
+    if (e.key === "Escape") { inp.value = prev; inp.blur(); }
+    e.stopPropagation();
+  });
 }
 
 function switchMode(index) {
@@ -383,10 +472,44 @@ function renderLayoutTabs() {
   tabsEl.innerHTML = "";
   (settings?.layouts || []).forEach((layout, i) => {
     const btn = document.createElement("button");
-    btn.className = "tab" + (i === currentLayoutIndex ? " active" : "");
+    btn.className = "layout-tab" + (i === currentLayoutIndex ? " active" : "");
     btn.textContent = layout.name || `Layout ${i + 1}`;
-    btn.addEventListener("click", () => switchLayout(i));
+    btn.title = layoutEditMode && i === currentLayoutIndex
+      ? "Click to rename" : "";
+    btn.addEventListener("click", () => {
+      if (layoutEditMode && i === currentLayoutIndex) startRenameLayout(i);
+      else switchLayout(i);
+    });
     tabsEl.appendChild(btn);
+  });
+}
+
+function startRenameLayout(index) {
+  const tabsEl = document.getElementById("layoutTabs");
+  const btn = [...tabsEl.querySelectorAll(".layout-tab")][index];
+  if (!btn || btn.querySelector("input")) return;
+
+  const prev = settings.layouts[index]?.name || `Layout ${index + 1}`;
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "tab-rename-input";
+  inp.value = prev;
+  btn.textContent = "";
+  btn.appendChild(inp);
+  inp.focus();
+  inp.select();
+
+  const commit = () => {
+    const name = inp.value.trim() || prev;
+    settings.layouts[index].name = name;
+    syncEditor();
+    renderLayoutTabs();
+  };
+  inp.addEventListener("blur",    commit);
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter")  inp.blur();
+    if (e.key === "Escape") { inp.value = prev; inp.blur(); }
+    e.stopPropagation();
   });
 }
 
@@ -536,6 +659,7 @@ function selectButton(idx) {
 
   labelInput.value = irCode ? (labels[irCode] || "") : "";
   irInput.value    = irCode;
+  detailTitle.textContent = (irCode && labels[irCode]) ? labels[irCode] : "Selected Button";
 
   const type   = slot.type || "keyboard";
   const preset = findPreset(slot.key, type);
@@ -546,6 +670,7 @@ function selectButton(idx) {
 }
 
 function clearDetailPanel() {
+  detailTitle.textContent = "Selected Button";
   labelInput.value      = "";
   irInput.value         = "";
   keyPresetSelect.value = "custom";
@@ -576,6 +701,7 @@ function updateSlotFromInputs() {
 
   const code = btn.irCode;
   if (labelInput.value.trim()) setLabel(code, labelInput.value.trim());
+  detailTitle.textContent = labelInput.value.trim() || "Selected Button";
 
   let key, type;
   const preset = keyPresetSelect.value;
@@ -615,7 +741,7 @@ async function requestLearn() {
 // ── Layout edit mode ──────────────────────────────────────────
 function setLayoutEditMode(active) {
   layoutEditMode = active;
-  editLayoutBtn.textContent = active ? "Exit Edit" : "Edit Layout";
+  editLayoutBtn.style.display = active ? "none" : "";
   layoutEditBar.style.display = active ? "flex" : "none";
   renderLayoutTabs();
   renderGrid();
@@ -630,15 +756,33 @@ learnBtn.addEventListener("click", requestLearn);
 clearBtn.addEventListener("click", clearSlot);
 toggleJsonBtn.addEventListener("click", () => jsonPanel.classList.toggle("visible"));
 
+modeColorSwatch.addEventListener("click", () => hueDropdown.classList.toggle("open"));
+document.addEventListener("click", (e) => {
+  if (!huePickerWrap.contains(e.target)) hueDropdown.classList.remove("open");
+});
+
 modeColorPicker.addEventListener("input", () => {
   if (!settings?.led) return;
   if (!Array.isArray(settings.led.modeColors)) {
     settings.led.modeColors = Array.from({ length: settings.modes?.length || 2 },
-      (_, i) => DEFAULT_MODE_COLORS[i] || "0x000000");
+      (_, i) => DEFAULT_MODE_COLORS[i] || "0xFF0040");
   }
   while (settings.led.modeColors.length <= currentModeIndex)
-    settings.led.modeColors.push("0x000000");
-  settings.led.modeColors[currentModeIndex] = cssColorToSettings(modeColorPicker.value);
+    settings.led.modeColors.push(DEFAULT_MODE_COLORS[currentModeIndex] || "0xFF0040");
+  const hueColor = hueToHex(parseInt(modeColorPicker.value));
+  modeColorPicker.style.setProperty("--thumb-color", hueColor);
+  modeColorSwatch.style.background = hueColor;
+  settings.led.modeColors[currentModeIndex] = cssColorToSettings(hueColor);
+  ledBrightnessSlider.style.accentColor = hueColor;
+  renderTabs();
+  syncEditor();
+});
+
+ledBrightnessSlider.addEventListener("input", () => {
+  const val = parseInt(ledBrightnessSlider.value, 10);
+  ledBrightnessValue.textContent = `${val}%`;
+  if (!settings?.led) return;
+  settings.led.brightnessPercent = val;
   syncEditor();
 });
 

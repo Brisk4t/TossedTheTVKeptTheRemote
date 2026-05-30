@@ -75,6 +75,23 @@ h1 {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 18px;
+  align-items: center;
+}
+
+#disconnectBtn {
+  display: none;
+}
+
+.apply-btn {
+  margin-left: auto;
+  background: #3ecf6a;
+  color: #041a0d;
+  box-shadow: 0 10px 20px rgba(62, 207, 106, 0.25);
+}
+
+.apply-btn:hover:not(:disabled) {
+  background: #4eda78;
+  box-shadow: 0 12px 24px rgba(62, 207, 106, 0.4);
 }
 
 .layout {
@@ -105,6 +122,18 @@ h1 {
   border-radius: 999px;
   padding: 8px 16px;
   box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mode-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-block;
 }
 
 .tab.active {
@@ -142,7 +171,28 @@ h1 {
   gap: 10px;
 }
 
-/* ── LED color picker ────────────────────────────────────── */
+/* ── LED controls ────────────────────────────────────────── */
+.brightness-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  user-select: none;
+}
+
+#ledBrightnessSlider {
+  width: 72px;
+  cursor: pointer;
+}
+
+#ledBrightnessValue {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  min-width: 30px;
+}
+
 .mode-color-label {
   display: flex;
   align-items: center;
@@ -153,34 +203,190 @@ h1 {
   user-select: none;
 }
 
-#modeColorPicker {
+/* ── Hue picker dropdown ─────────────────────────────────── */
+.hue-picker-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.hue-swatch {
   width: 44px;
   height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  background: rgba(10, 15, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #ff0040;
   cursor: pointer;
   padding: 3px;
-  appearance: none;
-  -webkit-appearance: none;
+  box-shadow: none;
+  transition: border-color 0.15s ease;
 }
 
-#modeColorPicker::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border-radius: 5px;
+.hue-swatch:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: none;
+  box-shadow: none;
 }
 
-#modeColorPicker::-webkit-color-swatch {
-  border: none;
-  border-radius: 5px;
-}
-
-/* ── Layout bar ──────────────────────────────────────────── */
-.layout-bar {
-  display: flex;
+.hue-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+}
+
+.hue-dropdown.open {
+  display: flex;
+}
+
+#modeColorPicker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 140px;
+  height: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+}
+
+#modeColorPicker::-webkit-slider-runnable-track {
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(to right,
+    hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%),
+    hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%),
+    hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%),
+    hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%),
+    hsl(360,100%,50%));
+}
+
+#modeColorPicker::-moz-range-track {
+  height: 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(to right,
+    hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%),
+    hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%),
+    hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%),
+    hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%),
+    hsl(360,100%,50%));
+}
+
+#modeColorPicker::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--thumb-color, #ff0040);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  margin-top: -2px;
+}
+
+#modeColorPicker::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--thumb-color, #ff0040);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Remote panel with browser-style layout tabs ─────────── */
+.remote-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
+}
+
+.remote-tabbar {
+  display: flex;
+  align-items: flex-end;
+}
+
+.remote-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.layout-tab {
+  padding: 7px 16px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+  background: rgba(10, 15, 20, 0.45);
+  color: var(--muted);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+  margin-bottom: -1px;
+  z-index: 1;
+}
+
+.layout-tab.active {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.07);
+  border-bottom-color: var(--panel-2);
+}
+
+.layout-tab:hover:not(.active) {
+  background: rgba(10, 15, 20, 0.7);
+  color: var(--text);
+  transform: none;
+  box-shadow: none;
+}
+
+.layout-tab-add {
+  border-style: dashed;
+  color: var(--accent-2);
+  padding: 7px 13px;
+}
+
+.layout-tab-add:hover {
+  background: rgba(123, 216, 214, 0.08);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Edit header — sits directly above the grid as one visual unit ── */
+.remote-edit-header {
+  background: var(--panel-2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: none;
+  border-radius: 0 20px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.layout-edit-btn {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+/* ── Layout bar (edit bar) ───────────────────────────────── */
+.layout-bar {
+  display: none; /* kept for legacy; replaced by remote-panel layout */
 }
 
 
@@ -193,7 +399,8 @@ h1 {
   background: rgba(10, 15, 20, 0.5);
   border-radius: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.1);
-  margin-bottom: 12px;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .new-layout-form.visible {
@@ -222,13 +429,16 @@ h1 {
 
 .remote {
   background: var(--panel-2);
-  border-radius: 20px;
+  border-radius: 0 0 20px 20px;
   padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: none;
   display: grid;
   grid-template-columns: repeat(var(--layout-cols, 5), minmax(0, 1fr));
   grid-auto-rows: minmax(64px, auto);
   gap: 10px;
+  position: relative;
+  z-index: 0;
 }
 
 .slot {
@@ -258,6 +468,20 @@ h1 {
   transform: translateY(-1px);
 }
 
+.detail-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.led-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+}
+
 .detail {
   background: rgba(16, 22, 28, 0.8);
   border-radius: 16px;
@@ -266,8 +490,25 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
 }
 
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-header h2 {
+  font-size: 1.1rem;
+}
+
+.detail-header .btn-danger {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+/* kept for non-header h2 selectors */
 .detail h2 {
   font-size: 1.1rem;
 }
@@ -298,6 +539,59 @@ h1 {
   font-family: "IBM Plex Mono", monospace;
 }
 
+/* ── Inline input + action button ────────────────────────── */
+.input-action-group {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(10, 15, 20, 0.85);
+}
+
+.input-action-group input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  min-width: 0;
+}
+
+.input-action-btn {
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.input-action-btn:hover:not(:disabled) {
+  background: rgba(224, 180, 92, 0.12);
+  color: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Inline mode rename input ────────────────────────────── */
+.tab-rename-input {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: inherit;
+  font-weight: 600;
+  width: 80px;
+  padding: 0;
+  outline: none;
+}
+
 /* ── Key custom input ────────────────────────────────────── */
 .key-custom {
   margin-top: 4px;
@@ -306,13 +600,9 @@ h1 {
 /* ── Layout edit mode ────────────────────────────────────── */
 .layout-edit-bar {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  background: rgba(10, 15, 20, 0.4);
-  border-radius: 12px;
-  border: 1px dashed rgba(224, 180, 92, 0.3);
-  margin-bottom: 4px;
 }
 
 .layout-edit-hint {
@@ -438,6 +728,20 @@ button.ghost {
   box-shadow: none;
 }
 
+button.btn-danger {
+  background: transparent;
+  color: #ff6060;
+  border: 1px solid rgba(255, 80, 80, 0.4);
+  box-shadow: none;
+}
+
+button.btn-danger:hover:not(:disabled) {
+  background: rgba(255, 80, 80, 0.08);
+  border-color: rgba(255, 80, 80, 0.65);
+  box-shadow: none;
+  transform: none;
+}
+
 .editor-wrap {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
@@ -506,6 +810,13 @@ textarea {
   border: 1px dashed rgba(123, 216, 214, 0.3);
   color: var(--accent-2);
   font-size: 0.9rem;
+}
+
+/* ── JSON editor toggle ──────────────────────────────────── */
+.panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 /* ── Collapsible log ─────────────────────────────────────── */

@@ -23,6 +23,11 @@ uint8_t repeatCount = 0; // Count of repeated reports
 // Current mode index
 uint8_t currentMode = 0;
 
+// Mode names (persisted in settings.json, editable from UI)
+char modeNames[MODE_COUNT][20] = {
+  "Mode 1", "Mode 2", "Mode 3", "Mode 4", "Mode 5"
+};
+
 // Layout data stored as raw JSON for pass-through (firmware does not process this)
 char layoutsJson[4096] = "[]";
 
@@ -391,6 +396,17 @@ void applyLegacyMappings(uint8_t modeIndex, JsonArray keyboard, JsonArray consum
   }
 }
 
+void applyModeNamesFromArray(JsonArray modes) {
+  uint8_t idx = 0;
+  for (JsonObject mode : modes) {
+    if (idx >= MODE_COUNT) break;
+    if (mode["name"].is<const char*>()) {
+      strlcpy(modeNames[idx], mode["name"].as<const char*>(), sizeof(modeNames[idx]));
+    }
+    idx++;
+  }
+}
+
 void applySettingsFromJson(JsonObject doc) {
   if (doc["ir"].is<JsonObject>())
     applyIrSettings(doc["ir"].as<JsonObject>());
@@ -398,6 +414,8 @@ void applySettingsFromJson(JsonObject doc) {
     applyLedSettings(doc["led"].as<JsonObject>());
   if (doc["layouts"].is<JsonArray>())
     serializeJson(doc["layouts"], layoutsJson, sizeof(layoutsJson));
+  if (doc["modes"].is<JsonArray>())
+    applyModeNamesFromArray(doc["modes"].as<JsonArray>());
   if (doc["modes"].is<JsonArray>()) {
     JsonArray modes = doc["modes"].as<JsonArray>();
     uint8_t idx = 0;
@@ -457,9 +475,7 @@ void buildSettingsJson(JsonObject doc) {
   JsonArray modes = doc["modes"].to<JsonArray>();
   for (uint8_t modeIndex = 0; modeIndex < numModes; modeIndex++) {
     JsonObject mode = modes.add<JsonObject>();
-    char modeName[16];
-    snprintf(modeName, sizeof(modeName), "Mode %d", modeIndex + 1);
-    mode["name"] = modeName;
+    mode["name"] = modeNames[modeIndex];
     JsonArray slots = mode["slots"].to<JsonArray>();
 
     for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
@@ -565,6 +581,7 @@ void loadMappings() {
 
   if (doc["modes"].is<JsonArray>()) {
     JsonArray modes = doc["modes"].as<JsonArray>();
+    applyModeNamesFromArray(modes);
     uint8_t idx = 0;
     for (JsonObject mode : modes) {
       if (idx >= MODE_COUNT) break;

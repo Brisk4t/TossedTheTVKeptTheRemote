@@ -22,9 +22,9 @@
       <section class="panel">
         <div class="actions">
           <button id="connectBtn">Connect</button>
-          <button id="disconnectBtn" class="ghost" disabled>Disconnect</button>
+          <button id="disconnectBtn" class="ghost">Disconnect</button>
           <button id="getBtn" disabled>Load From Device</button>
-          <button id="applyBtn" disabled>Apply</button>
+          <button id="applyBtn" class="apply-btn" disabled>Apply</button>
         </div>
 
         <div class="layout">
@@ -32,48 +32,65 @@
             <div class="tabs" id="modeTabs">
               <!-- Rendered by JS -->
             </div>
-            <label class="mode-color-label" title="LED color for this mode">
-              LED Color
-              <input type="color" id="modeColorPicker" value="#290118" />
-            </label>
-            <div class="subactions">
-              <button id="learnBtn" class="ghost" disabled>Learn IR</button>
-              <button id="clearBtn" class="ghost" disabled>Clear Slot</button>
-              <button id="toggleJsonBtn" class="ghost">JSON</button>
-            </div>
-          </div>
-
-          <div class="layout-bar">
-            <div class="tabs" id="layoutTabs">
-              <!-- Rendered by JS -->
-            </div>
-            <button id="editLayoutBtn" class="ghost">Edit Layout</button>
-            <button id="addLayoutBtn" class="ghost">+ Layout</button>
-          </div>
-
-          <div id="layoutEditBar" class="layout-edit-bar">
-            <button id="addSlotBtn" class="ghost">+ Button</button>
-            <span class="layout-edit-hint">Drag buttons to rearrange &bull; &times; to remove</span>
-            <button id="doneEditBtn">Done</button>
-          </div>
-
-          <div id="newLayoutForm" class="new-layout-form">
-            <input id="layoutNameInput" type="text" placeholder="Layout name" />
-            <button id="saveLayoutBtn">Create</button>
-            <button id="cancelLayoutBtn" class="ghost">Cancel</button>
           </div>
 
           <div class="content">
-            <div class="remote" id="remoteGrid"></div>
+            <div class="remote-panel">
+              <div class="remote-tabbar">
+                <div id="layoutTabs" class="remote-tabs">
+                  <!-- Rendered by JS -->
+                </div>
+                <button id="addLayoutBtn" class="layout-tab layout-tab-add">+</button>
+              </div>
+              <div id="newLayoutForm" class="new-layout-form">
+                <input id="layoutNameInput" type="text" placeholder="Layout name" />
+                <button id="saveLayoutBtn">Create</button>
+                <button id="cancelLayoutBtn" class="ghost">Cancel</button>
+              </div>
+              <div class="remote-frame">
+                <div class="remote-edit-header">
+                  <button id="editLayoutBtn" class="ghost layout-edit-btn">Edit Layout</button>
+                  <div id="layoutEditBar" class="layout-edit-bar">
+                    <button id="addSlotBtn" class="ghost">+ Button</button>
+                    <span class="layout-edit-hint">Drag to rearrange &bull; &times; to remove</span>
+                    <button id="doneEditBtn">Done</button>
+                  </div>
+                </div>
+                <div class="remote" id="remoteGrid"></div>
+              </div>
+            </div>
+            <div class="detail-column">
+            <div class="led-controls">
+              <label class="mode-color-label" title="LED color for this mode">
+                LED
+                <div class="hue-picker-wrap" id="huePickerWrap">
+                  <button type="button" id="modeColorSwatch" class="hue-swatch"></button>
+                  <div class="hue-dropdown" id="hueDropdown">
+                    <input type="range" id="modeColorPicker" min="0" max="359" value="0" />
+                  </div>
+                </div>
+              </label>
+              <label class="brightness-label">
+                Brightness
+                <input type="range" id="ledBrightnessSlider" min="1" max="100" value="10" />
+                <span id="ledBrightnessValue">10%</span>
+              </label>
+            </div>
             <aside class="detail" id="detailPanel">
-              <h2>Selected Button</h2>
+              <div class="detail-header">
+                <h2 id="detailTitle">Selected Button</h2>
+                <button id="clearBtn" class="btn-danger" disabled>Clear</button>
+              </div>
               <label>
                 Label
                 <input id="labelInput" type="text" placeholder="Play / Volume / Up" />
               </label>
               <label>
                 IR Code
-                <input id="irInput" type="text" placeholder="0x00000000" />
+                <div class="input-action-group">
+                  <input id="irInput" type="text" placeholder="0x00000000" />
+                  <button id="learnBtn" class="input-action-btn" disabled>Learn</button>
+                </div>
               </label>
               <label>
                 Key / Usage
@@ -139,6 +156,7 @@
                 Click Learn IR, then press the remote button.
               </div>
             </aside>
+            </div>
           </div>
         </div>
 
@@ -156,6 +174,9 @@
               Tip: JSON stays compatible with settings.json.
             </div>
           </aside>
+        </div>
+        <div class="panel-footer">
+          <button id="toggleJsonBtn" class="ghost">JSON Editor</button>
         </div>
       </section>
 
