@@ -11,9 +11,9 @@ void sendJsonResponse(JsonDocument& doc) {
 }
 
 void handleSerialCommand(const String& line) {
-  StaticJsonDocument<JSON_DOC_SIZE> req;
+  DynamicJsonDocument req(JSON_DOC_SIZE);
   DeserializationError error = deserializeJson(req, line);
-  StaticJsonDocument<JSON_DOC_SIZE> res;
+  DynamicJsonDocument res(JSON_DOC_SIZE);
 
   if (error) {
     res["ok"] = false;
@@ -118,7 +118,7 @@ bool webSerialConsumeIrCode(uint32_t code) {
   if (!learnPending) return false;
   if (code == 0x00) return false;
 
-  StaticJsonDocument<JSON_DOC_SIZE> res;
+  DynamicJsonDocument res(256);
   char codeStr[12];
   snprintf(codeStr, sizeof(codeStr), "0x%08X", code);
   res["ok"] = true;

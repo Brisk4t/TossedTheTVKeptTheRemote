@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-#define JSON_DOC_SIZE 8192
+#define JSON_DOC_SIZE 16384
 
 void applySettingsFromJson(JsonObject doc);
 void buildSettingsJson(JsonObject doc);

@@ -23,6 +23,9 @@ uint8_t repeatCount = 0; // Count of repeated reports
 // Current mode index
 uint8_t currentMode = 0;
 
+// Layout data stored as raw JSON for pass-through (firmware does not process this)
+char layoutsJson[4096] = "[]";
+
 // Runtime slots (loaded from JSON files)
 IRSlot modeSlots[MODE_COUNT][MAX_MAPPINGS];
 
@@ -393,6 +396,8 @@ void applySettingsFromJson(JsonObject doc) {
     applyIrSettings(doc["ir"].as<JsonObject>());
   if (doc["led"].is<JsonObject>())
     applyLedSettings(doc["led"].as<JsonObject>());
+  if (doc["layouts"].is<JsonArray>())
+    serializeJson(doc["layouts"], layoutsJson, sizeof(layoutsJson));
   if (doc["modes"].is<JsonArray>()) {
     JsonArray modes = doc["modes"].as<JsonArray>();
     uint8_t idx = 0;
@@ -441,6 +446,14 @@ void buildSettingsJson(JsonObject doc) {
     modeColors.add(colorStr);
   }
 
+  // Re-emit stored layout data (pass-through, firmware does not process this)
+  DynamicJsonDocument tempLayouts(4096);
+  if (deserializeJson(tempLayouts, layoutsJson) == DeserializationError::Ok) {
+    doc["layouts"].set(tempLayouts.as<JsonVariant>());
+  } else {
+    doc["layouts"].to<JsonArray>();
+  }
+
   JsonArray modes = doc["modes"].to<JsonArray>();
   for (uint8_t modeIndex = 0; modeIndex < numModes; modeIndex++) {
     JsonObject mode = modes.add<JsonObject>();
@@ -476,7 +489,7 @@ void buildSettingsJson(JsonObject doc) {
 }
 
 bool saveSettingsToFS() {
-  StaticJsonDocument<JSON_DOC_SIZE> doc;
+  DynamicJsonDocument doc(JSON_DOC_SIZE);
   JsonObject root = doc.to<JsonObject>();
   buildSettingsJson(root);
 
@@ -500,7 +513,7 @@ void loadSettings() {
   }
 
   File file = LittleFS.open(MAPPINGS_CONFIG_FILE, "r");
-  StaticJsonDocument<JSON_DOC_SIZE> doc;
+  DynamicJsonDocument doc(JSON_DOC_SIZE);
   DeserializationError error = deserializeJson(doc, file);
   file.close();
 
@@ -524,6 +537,11 @@ void loadSettings() {
     applyLedSettings(led);
   }
 
+  // Store layout data for pass-through to web UI
+  if (doc["layouts"].is<JsonArray>()) {
+    serializeJson(doc["layouts"], layoutsJson, sizeof(layoutsJson));
+  }
+
   Serial.println("Settings loaded from JSON");
 }
 
@@ -535,7 +553,7 @@ void loadMappings() {
   }
 
   File file = LittleFS.open(MAPPINGS_CONFIG_FILE, "r");
-  StaticJsonDocument<JSON_DOC_SIZE> doc;
+  DynamicJsonDocument doc(JSON_DOC_SIZE);
   DeserializationError error = deserializeJson(doc, file);
   file.close();
 
