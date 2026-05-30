@@ -44,15 +44,22 @@
           </div>
 
           <div class="layout-bar">
-            <select id="layoutSelect" class="layout-select"></select>
+            <div class="tabs" id="layoutTabs">
+              <!-- Rendered by JS -->
+            </div>
+            <button id="editLayoutBtn" class="ghost">Edit Layout</button>
             <button id="addLayoutBtn" class="ghost">+ Layout</button>
           </div>
 
+          <div id="layoutEditBar" class="layout-edit-bar">
+            <button id="addSlotBtn" class="ghost">+ Button</button>
+            <span class="layout-edit-hint">Drag buttons to rearrange &bull; &times; to remove</span>
+            <button id="doneEditBtn">Done</button>
+          </div>
+
           <div id="newLayoutForm" class="new-layout-form">
-            <input id="layoutNameInput" type="text" placeholder="Name (e.g. 3×3 Remote)" />
-            <input id="layoutColsInput" type="number" min="1" max="10" placeholder="Cols" />
-            <input id="layoutCountInput" type="number" min="1" max="20" placeholder="Buttons" />
-            <button id="saveLayoutBtn">Save Layout</button>
+            <input id="layoutNameInput" type="text" placeholder="Layout name" />
+            <button id="saveLayoutBtn">Create</button>
             <button id="cancelLayoutBtn" class="ghost">Cancel</button>
           </div>
 
@@ -72,6 +79,9 @@
                 Key / Usage
                 <select id="keyPresetSelect">
                   <option value="custom">Custom&hellip;</option>
+                  <optgroup label="Device">
+                    <option value="mode_switch">Mode Switch</option>
+                  </optgroup>
                   <optgroup label="Media">
                     <option value="consumer:0xE9">Volume Up</option>
                     <option value="consumer:0xEA">Volume Down</option>

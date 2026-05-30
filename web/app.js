@@ -14,12 +14,13 @@ const clearBtn        = document.getElementById("clearBtn");
 const jsonPanel       = document.getElementById("jsonPanel");
 const toggleJsonBtn   = document.getElementById("toggleJsonBtn");
 const modeColorPicker = document.getElementById("modeColorPicker");
-const layoutSelect    = document.getElementById("layoutSelect");
 const addLayoutBtn    = document.getElementById("addLayoutBtn");
+const editLayoutBtn   = document.getElementById("editLayoutBtn");
+const layoutEditBar   = document.getElementById("layoutEditBar");
+const addSlotBtn      = document.getElementById("addSlotBtn");
+const doneEditBtn     = document.getElementById("doneEditBtn");
 const newLayoutForm   = document.getElementById("newLayoutForm");
 const layoutNameInput = document.getElementById("layoutNameInput");
-const layoutColsInput = document.getElementById("layoutColsInput");
-const layoutCountInput= document.getElementById("layoutCountInput");
 const saveLayoutBtn   = document.getElementById("saveLayoutBtn");
 const cancelLayoutBtn = document.getElementById("cancelLayoutBtn");
 const connectBtn      = document.getElementById("connectBtn");
@@ -37,24 +38,54 @@ const DEFAULT_MODE_COLORS = [
   "0x290118", "0x012329", "0x122900", "0x291200", "0x001229",
 ];
 
+// Default layouts use the new {name, buttons:[{slot,col,row}]} format
 const DEFAULT_LAYOUTS = [
-  { name: "5×4 Grid", columns: 5, count: 20 },
-  { name: "4×4 Grid", columns: 4, count: 16 },
-  { name: "3×3 Grid", columns: 3, count: 9  },
+  {
+    name: "5×4 Grid",
+    buttons: Array.from({ length: 20 }, (_, i) => ({ slot: i, col: i % 5, row: Math.floor(i / 5) })),
+  },
+  {
+    name: "4×4 Grid",
+    buttons: Array.from({ length: 16 }, (_, i) => ({ slot: i, col: i % 4, row: Math.floor(i / 4) })),
+  },
+  {
+    name: "3×3 Grid",
+    buttons: Array.from({ length: 9 }, (_, i) => ({ slot: i, col: i % 3, row: Math.floor(i / 3) })),
+  },
 ];
 
 // ── State ─────────────────────────────────────────────────────
 let port, reader, writer;
-let readLoopActive   = false;
-let currentModeIndex = 0;
-let selectedIndex    = 0;
-let learnArmed       = false;
-let layouts          = [...DEFAULT_LAYOUTS];
+let readLoopActive     = false;
+let currentModeIndex   = 0;
+let selectedIndex      = 0;
+let learnArmed         = false;
+let layouts            = DEFAULT_LAYOUTS.map(migrateLayout);
 let currentLayoutIndex = 0;
+let layoutEditMode     = false;
+let draggedSlot        = null;   // slot index being dragged
 
 const defaultLabels = Array.from({ length: MAX_MAPPINGS }, (_, i) => `B${i + 1}`);
 let labels   = [...defaultLabels];
 let settings = null;
+
+// ── Layout migration ──────────────────────────────────────────
+// Converts old {name, columns, count} format to {name, buttons:[…]}
+function migrateLayout(layout) {
+  if (Array.isArray(layout.buttons)) return layout;
+  const cols = layout.columns || 5;
+  const count = layout.count || 0;
+  return {
+    name: layout.name,
+    buttons: Array.from({ length: count }, (_, i) => ({
+      slot: i, col: i % cols, row: Math.floor(i / cols),
+    })),
+  };
+}
+
+function getCurrentLayout() {
+  return layouts[currentLayoutIndex] || { name: "Default", buttons: [] };
+}
 
 // ── Color helpers ─────────────────────────────────────────────
 function settingsColorToCss(hex) {
@@ -75,12 +106,25 @@ function updateModeColorPicker() {
 
 // ── Preset helpers ────────────────────────────────────────────
 function findPreset(key, type) {
+  if (type === "mode_switch") return "mode_switch";
   if (!key) return "custom";
   const target = `${type}:${key.toUpperCase()}`;
   for (const opt of keyPresetSelect.options) {
-    if (opt.value !== "custom" && opt.value.toUpperCase() === target) return opt.value;
+    if (opt.value !== "custom" && opt.value !== "mode_switch" &&
+        opt.value.toUpperCase() === target) return opt.value;
   }
   return "custom";
+}
+
+function applyPresetUi(preset) {
+  const isModeSwitch = preset === "mode_switch";
+  const isCustom     = preset === "custom";
+  keyInput.style.display              = isCustom  ? "" : "none";
+  typeSelect.closest("label").style.display = isModeSwitch ? "none" : "";
+  if (!isModeSwitch && !isCustom) {
+    const [type] = preset.split(":");
+    typeSelect.value = type;
+  }
 }
 
 // ── Log ───────────────────────────────────────────────────────
@@ -192,7 +236,7 @@ async function sendCommand(obj) {
 
 async function getSettings() { await sendCommand({ op: "get" }); }
 
-// Editor is always the source of truth — parse it first so manual JSON edits are honoured
+// Editor is always the source of truth on Apply
 async function applySettings() {
   try {
     const parsed = JSON.parse(editor.value);
@@ -206,7 +250,6 @@ async function applySettings() {
   await sendCommand({ op: "set", data: settings });
 }
 
-// Keep the JSON editor in sync whenever settings changes via the UI
 function syncEditor() {
   editor.value = JSON.stringify(settings, null, 2);
 }
@@ -236,7 +279,6 @@ function defaultSettings() {
 function ensureSettings() {
   if (!settings) settings = defaultSettings();
 
-  // Migrate legacy top-level keyboard/consumer arrays
   if (!Array.isArray(settings.modes)) {
     const lk = settings.keyboard || [];
     const lc = settings.consumer || [];
@@ -262,7 +304,6 @@ function ensureSettings() {
 
   if (!settings.led) settings.led = defaultSettings().led;
 
-  // Migrate legacy keyboardModeColor / consumerModeColor to modeColors array
   if (!Array.isArray(settings.led.modeColors)) {
     const km = settings.led.keyboardModeColor || DEFAULT_MODE_COLORS[0];
     const cm = settings.led.consumerModeColor || DEFAULT_MODE_COLORS[1];
@@ -271,7 +312,6 @@ function ensureSettings() {
     delete settings.led.consumerModeColor;
   }
 
-  // Ensure one color entry per mode
   while (settings.led.modeColors.length < settings.modes.length) {
     const idx = settings.led.modeColors.length;
     settings.led.modeColors.push(DEFAULT_MODE_COLORS[idx] || "0x000000");
@@ -349,65 +389,216 @@ function loadLayouts() {
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) layouts = parsed;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      layouts = parsed.map(migrateLayout);
+    }
   } catch {}
 }
 
-function renderLayoutSelect() {
-  layoutSelect.innerHTML = "";
+function renderLayoutTabs() {
+  const tabsEl = document.getElementById("layoutTabs");
+  tabsEl.innerHTML = "";
   layouts.forEach((layout, i) => {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = layout.name;
-    layoutSelect.appendChild(opt);
+    const btn = document.createElement("button");
+    btn.className = "tab" + (i === currentLayoutIndex ? " active" : "");
+    btn.textContent = layout.name;
+    btn.addEventListener("click", () => switchLayout(i));
+    tabsEl.appendChild(btn);
   });
-  layoutSelect.value = currentLayoutIndex;
+}
+
+function switchLayout(index) {
+  currentLayoutIndex = index;
+  const layout = getCurrentLayout();
+  if (!layout.buttons.find(b => b.slot === selectedIndex)) {
+    selectedIndex = layout.buttons[0]?.slot ?? 0;
+  }
+  setLayoutEditMode(false);
+  renderLayoutTabs();
+  renderGrid();
+  selectSlot(selectedIndex);
+}
+
+function setLayoutEditMode(active) {
+  layoutEditMode = active;
+  editLayoutBtn.textContent = active ? "Exit Edit" : "Edit Layout";
+  layoutEditBar.style.display = active ? "flex" : "none";
+  renderLayoutTabs();
+  renderGrid();
 }
 
 // ── Grid ──────────────────────────────────────────────────────
 function renderGrid() {
-  const layout = layouts[currentLayoutIndex] || DEFAULT_LAYOUTS[0];
-  remoteGrid.style.setProperty("--layout-cols", layout.columns);
+  const layout  = getCurrentLayout();
+  const buttons = layout.buttons || [];
+
+  const maxCol = buttons.length > 0 ? Math.max(...buttons.map(b => b.col)) : -1;
+  const maxRow = buttons.length > 0 ? Math.max(...buttons.map(b => b.row)) : -1;
+
+  // In edit mode show extra empty cells so there's always space to drop
+  const canvasCols = Math.max(maxCol + (layoutEditMode ? 2 : 1), layoutEditMode ? 4 : 1);
+  const canvasRows = Math.max(maxRow + (layoutEditMode ? 2 : 1), layoutEditMode ? 3 : 1);
+
+  remoteGrid.style.setProperty("--layout-cols", canvasCols);
   remoteGrid.innerHTML = "";
 
-  for (let i = 0; i < layout.count; i++) {
-    const slot      = getSlot(currentModeIndex, i);
+  if (layoutEditMode) {
+    const occupied = new Set(buttons.map(b => `${b.col},${b.row}`));
+    for (let row = 0; row < canvasRows; row++) {
+      for (let col = 0; col < canvasCols; col++) {
+        if (occupied.has(`${col},${row}`)) continue;
+        const cell = document.createElement("div");
+        cell.className = "drop-cell";
+        cell.style.gridColumn = col + 1;
+        cell.style.gridRow    = row + 1;
+        cell.dataset.col = col;
+        cell.dataset.row = row;
+        cell.addEventListener("dragover",  (e) => { e.preventDefault(); cell.classList.add("drag-over"); });
+        cell.addEventListener("dragleave", ()  => cell.classList.remove("drag-over"));
+        cell.addEventListener("drop",      (e) => {
+          e.preventDefault();
+          cell.classList.remove("drag-over");
+          dropToPosition(parseInt(cell.dataset.col), parseInt(cell.dataset.row));
+        });
+        remoteGrid.appendChild(cell);
+      }
+    }
+  }
+
+  for (const btn of buttons) {
+    const slot      = getSlot(currentModeIndex, btn.slot);
     const typeLabel = slot.irCode ? slot.type : "";
     const button    = document.createElement("button");
-    button.className = "slot" + (i === selectedIndex ? " active" : "");
-    button.dataset.index = i;
-    button.innerHTML = `
-      <div>${labels[i]}</div>
-      <small>${slot.irCode || "Unassigned"}${typeLabel ? ` &bull; ${typeLabel}` : ""}</small>
-    `;
-    button.addEventListener("click", () => selectSlot(i));
+    button.className    = "slot" + (btn.slot === selectedIndex ? " active" : "");
+    button.style.gridColumn = btn.col + 1;
+    button.style.gridRow    = btn.row + 1;
+    button.dataset.slotIndex = btn.slot;
+
+    if (layoutEditMode) {
+      button.draggable = true;
+      button.classList.add("slot-editing");
+      button.innerHTML = `
+        <span class="slot-drag-handle" title="Drag to move">&#10495;</span>
+        <div class="slot-label">${labels[btn.slot]}</div>
+        <span class="slot-remove" title="Remove">&times;</span>
+      `;
+      button.querySelector(".slot-remove").addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeButtonFromLayout(btn.slot);
+      });
+      button.addEventListener("dragstart", (e) => {
+        draggedSlot = btn.slot;
+        e.dataTransfer.effectAllowed = "move";
+        setTimeout(() => button.classList.add("dragging"), 0);
+      });
+      button.addEventListener("dragend", () => {
+        draggedSlot = null;
+        button.classList.remove("dragging");
+      });
+      button.addEventListener("dragover",  (e) => { e.preventDefault(); button.classList.add("drag-over"); });
+      button.addEventListener("dragleave", () => button.classList.remove("drag-over"));
+      button.addEventListener("drop",      (e) => {
+        e.preventDefault();
+        button.classList.remove("drag-over");
+        if (draggedSlot !== null && draggedSlot !== btn.slot) swapButtons(draggedSlot, btn.slot);
+      });
+    } else {
+      button.innerHTML = `
+        <div>${labels[btn.slot]}</div>
+        <small>${slot.irCode || "Unassigned"}${typeLabel ? ` &bull; ${typeLabel}` : ""}</small>
+      `;
+      button.addEventListener("click", () => selectSlot(btn.slot));
+    }
+
     remoteGrid.appendChild(button);
   }
 }
 
+function dropToPosition(col, row) {
+  if (draggedSlot === null) return;
+  const layout = getCurrentLayout();
+  const btn = layout.buttons.find(b => b.slot === draggedSlot);
+  if (btn) { btn.col = col; btn.row = row; saveLayouts(); renderGrid(); }
+}
+
+function swapButtons(slotA, slotB) {
+  const layout = getCurrentLayout();
+  const a = layout.buttons.find(b => b.slot === slotA);
+  const b = layout.buttons.find(b => b.slot === slotB);
+  if (a && b) {
+    [a.col, a.row, b.col, b.row] = [b.col, b.row, a.col, a.row];
+    saveLayouts();
+    renderGrid();
+  }
+}
+
+function addButtonToLayout() {
+  const layout = getCurrentLayout();
+  const usedSlots = new Set(layout.buttons.map(b => b.slot));
+  let nextSlot = -1;
+  for (let i = 0; i < MAX_MAPPINGS; i++) {
+    if (!usedSlots.has(i)) { nextSlot = i; break; }
+  }
+  if (nextSlot === -1) { logLine("All slots are already in this layout."); return; }
+
+  // Place at first empty position in reading order across the canvas width
+  const maxCol = layout.buttons.length > 0 ? Math.max(...layout.buttons.map(b => b.col)) + 1 : 5;
+  const occupied = new Set(layout.buttons.map(b => `${b.col},${b.row}`));
+  let col = 0, row = 0;
+  while (occupied.has(`${col},${row}`)) {
+    col++;
+    if (col >= maxCol) { col = 0; row++; }
+  }
+
+  layout.buttons.push({ slot: nextSlot, col, row });
+  saveLayouts();
+  renderGrid();
+}
+
+function removeButtonFromLayout(slotIndex) {
+  const layout = getCurrentLayout();
+  layout.buttons = layout.buttons.filter(b => b.slot !== slotIndex);
+  saveLayouts();
+  renderGrid();
+}
+
+// ── Slot selection ────────────────────────────────────────────
 function selectSlot(index) {
   selectedIndex = index;
   renderGrid();
 
-  const slot  = getSlot(currentModeIndex, index);
+  const slot   = getSlot(currentModeIndex, index);
   labelInput.value = labels[index] || "";
   irInput.value    = slot.irCode || "";
-  typeSelect.value = slot.type || "keyboard";
 
   const preset = findPreset(slot.key, slot.type || "keyboard");
-  keyPresetSelect.value  = preset;
-  keyInput.value         = slot.key || "";
-  keyInput.style.display = preset === "custom" ? "" : "none";
+  keyPresetSelect.value = preset;
+  keyInput.value        = slot.key || "";
+  applyPresetUi(preset);
+
+  if (preset !== "mode_switch") {
+    typeSelect.value = slot.type || "keyboard";
+  }
 }
 
 function updateSlotFromInputs() {
   const slot = getSlot(currentModeIndex, selectedIndex);
   labels[selectedIndex] = labelInput.value.trim() || defaultLabels[selectedIndex];
-  setSlot(currentModeIndex, selectedIndex, {
-    irCode: slot.irCode,
-    key:    keyInput.value.trim(),
-    type:   typeSelect.value,
-  });
+
+  let key, type;
+  const preset = keyPresetSelect.value;
+  if (preset === "mode_switch") {
+    key = ""; type = "mode_switch";
+  } else if (preset !== "custom") {
+    const [pType, pCode] = preset.split(":");
+    key = pCode; type = pType;
+    typeSelect.value = type;
+  } else {
+    key = keyInput.value.trim();
+    type = typeSelect.value;
+  }
+
+  setSlot(currentModeIndex, selectedIndex, { irCode: slot.irCode, key, type });
   saveLabels();
   syncEditor();
   renderGrid();
@@ -462,63 +653,51 @@ modeColorPicker.addEventListener("input", () => {
 });
 
 // Layout controls
-layoutSelect.addEventListener("change", () => {
-  currentLayoutIndex = Number(layoutSelect.value);
-  const layout = layouts[currentLayoutIndex];
-  if (selectedIndex >= layout.count) selectedIndex = 0;
-  renderGrid();
-  selectSlot(selectedIndex);
-});
+
+editLayoutBtn.addEventListener("click", () => setLayoutEditMode(!layoutEditMode));
+doneEditBtn.addEventListener("click",   () => setLayoutEditMode(false));
+addSlotBtn.addEventListener("click",    addButtonToLayout);
 
 addLayoutBtn.addEventListener("click", () => newLayoutForm.classList.toggle("visible"));
 cancelLayoutBtn.addEventListener("click", () => newLayoutForm.classList.remove("visible"));
 
 saveLayoutBtn.addEventListener("click", () => {
-  const name    = layoutNameInput.value.trim();
-  const columns = parseInt(layoutColsInput.value, 10);
-  const count   = parseInt(layoutCountInput.value, 10);
-  if (!name || !columns || !count || columns < 1 || columns > 10 || count < 1 || count > MAX_MAPPINGS) {
-    logLine("Invalid layout: provide a name, 1–10 columns, 1–20 buttons.");
-    return;
-  }
-  layouts.push({ name, columns, count });
+  const name = layoutNameInput.value.trim();
+  if (!name) { logLine("Please enter a layout name."); return; }
+  layouts.push({ name, buttons: [] });
   currentLayoutIndex = layouts.length - 1;
   saveLayouts();
-  renderLayoutSelect();
-  renderGrid();
+  renderLayoutTabs();
   newLayoutForm.classList.remove("visible");
-  layoutNameInput.value  = "";
-  layoutColsInput.value  = "";
-  layoutCountInput.value = "";
+  layoutNameInput.value = "";
+  setLayoutEditMode(true);   // immediately enter edit mode so user can add buttons
 });
 
 // Key preset controls
 keyPresetSelect.addEventListener("change", () => {
   const val = keyPresetSelect.value;
-  if (val === "custom") {
-    keyInput.style.display = "";
-    keyInput.focus();
-    return;
+  applyPresetUi(val);
+  if (val === "custom") { keyInput.focus(); return; }
+  if (val !== "mode_switch") {
+    const [, code] = val.split(":");
+    keyInput.value = code;
   }
-  const [type, code] = val.split(":");
-  keyInput.value         = code;
-  keyInput.style.display = "none";
-  typeSelect.value       = type;
   updateSlotFromInputs();
 });
 
 keyInput.addEventListener("input", () => {
-  keyPresetSelect.value  = "custom";
-  keyInput.style.display = "";
+  keyPresetSelect.value = "custom";
+  applyPresetUi("custom");
   updateSlotFromInputs();
 });
 
 typeSelect.addEventListener("change", () => {
-  if (keyPresetSelect.value !== "custom") {
-    const [presetType] = keyPresetSelect.value.split(":");
+  const val = keyPresetSelect.value;
+  if (val !== "custom" && val !== "mode_switch") {
+    const [presetType] = val.split(":");
     if (typeSelect.value !== presetType) {
-      keyPresetSelect.value  = "custom";
-      keyInput.style.display = "";
+      keyPresetSelect.value = "custom";
+      applyPresetUi("custom");
     }
   }
   updateSlotFromInputs();
@@ -532,7 +711,8 @@ loadLabels();
 loadLayouts();
 settings = defaultSettings();
 editor.value = JSON.stringify(settings, null, 2);
-renderLayoutSelect();
+layoutEditBar.style.display = "none";
+renderLayoutTabs();
 renderTabs();
 renderGrid();
 selectSlot(0);

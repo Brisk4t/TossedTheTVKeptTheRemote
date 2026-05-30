@@ -272,12 +272,13 @@ bool parseKeyValue(JsonVariant keyVar, uint16_t* outKey) {
 uint8_t parseSlotType(JsonVariant typeVar) {
   if (typeVar.is<const char*>()) {
     const char* typeStr = typeVar.as<const char*>();
-    if (strcmp(typeStr, "keyboard") == 0) return SLOT_KEYBOARD;
-    if (strcmp(typeStr, "consumer") == 0) return SLOT_CONSUMER;
+    if (strcmp(typeStr, "keyboard") == 0)    return SLOT_KEYBOARD;
+    if (strcmp(typeStr, "consumer") == 0)    return SLOT_CONSUMER;
+    if (strcmp(typeStr, "mode_switch") == 0) return SLOT_MODE_SWITCH;
   }
   if (typeVar.is<uint8_t>()) {
     uint8_t typeVal = typeVar.as<uint8_t>();
-    if (typeVal <= SLOT_CONSUMER) return typeVal;
+    if (typeVal <= SLOT_MODE_SWITCH) return typeVal;
   }
   return SLOT_NONE;
 }
@@ -338,14 +339,14 @@ void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
     }
 
     const char* irCodeStr = slot["irCode"];
-    uint16_t keyVal = 0;
-    if (!parseKeyValue(slot["key"], &keyVal)) {
+    uint8_t typeVal = parseSlotType(slot["type"]);
+    if (typeVal == SLOT_NONE) {
       slotIndex++;
       continue;
     }
 
-    uint8_t typeVal = parseSlotType(slot["type"]);
-    if (typeVal == SLOT_NONE) {
+    uint16_t keyVal = 0;
+    if (typeVal != SLOT_MODE_SWITCH && !parseKeyValue(slot["key"], &keyVal)) {
       slotIndex++;
       continue;
     }
@@ -456,16 +457,19 @@ void buildSettingsJson(JsonObject doc) {
       char irCodeStr[12];
       formatHex(irCodeStr, sizeof(irCodeStr), current.irCode, 8);
       slot["irCode"] = irCodeStr;
-      slot["type"] = (current.type == SLOT_KEYBOARD) ? "keyboard" : "consumer";
 
       if (current.type == SLOT_KEYBOARD) {
+        slot["type"] = "keyboard";
         char keyStr[6];
         formatHex(keyStr, sizeof(keyStr), current.key, 2);
         slot["key"] = keyStr;
-      } else {
+      } else if (current.type == SLOT_CONSUMER) {
+        slot["type"] = "consumer";
         char keyStr[8];
         formatHex(keyStr, sizeof(keyStr), current.key, 4);
         slot["key"] = keyStr;
+      } else if (current.type == SLOT_MODE_SWITCH) {
+        slot["type"] = "mode_switch";
       }
     }
   }
@@ -663,6 +667,11 @@ void loop() {
           consumerWrite(slot.key);
           Serial.print("Sent consumer key: ");
           Serial.println(slot.key, HEX);
+        } else if (slot.type == SLOT_MODE_SWITCH) {
+          currentMode = (currentMode + 1) % numModes;
+          updateLED();
+          Serial.print("Slot mode switch: ");
+          Serial.println(currentMode);
         }
       }
     }

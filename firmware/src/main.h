@@ -30,7 +30,8 @@
 enum IRSlotType : uint8_t {
   SLOT_NONE = 0,
   SLOT_KEYBOARD = 1,
-  SLOT_CONSUMER = 2
+  SLOT_CONSUMER = 2,
+  SLOT_MODE_SWITCH = 3
 };
 
 struct IRSlot
