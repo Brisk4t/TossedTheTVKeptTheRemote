@@ -610,9 +610,81 @@ h1 {
   outline: none;
 }
 
-/* ── Key custom input ────────────────────────────────────── */
-.key-custom {
+/* ── Combo key editor ────────────────────────────────────── */
+.combo-editor {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 4px;
+}
+
+.combo-step-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.combo-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 15, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.combo-mod {
+  background: rgba(224, 180, 92, 0.15);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.combo-key-label {
+  color: var(--text);
+}
+
+.combo-step-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 0.95rem;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+  min-width: unset;
+}
+
+.combo-step-remove:hover {
+  color: #ff7070;
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+.combo-arrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.combo-capture-btn {
+  align-self: flex-start;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.combo-capture-btn.capturing {
+  color: var(--accent);
+  border-color: rgba(224, 180, 92, 0.5);
 }
 
 /* ── Layout edit mode ────────────────────────────────────── */

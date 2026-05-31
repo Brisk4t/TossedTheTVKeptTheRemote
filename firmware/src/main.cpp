@@ -32,7 +32,8 @@ char modeNames[MODE_COUNT][20] = {
 char layoutsJson[4096] = "[]";
 
 // Runtime slots (loaded from JSON files)
-IRSlot modeSlots[MODE_COUNT][MAX_MAPPINGS];
+IRSlot    modeSlots[MODE_COUNT][MAX_MAPPINGS];
+ComboStep comboData[MODE_COUNT][MAX_MAPPINGS][MAX_COMBO_STEPS];
 
 // ------------------------------
 // USB HID (Adafruit TinyUSB)
@@ -198,23 +199,27 @@ bool asciiToHid(uint8_t ascii, uint8_t* modifier, uint8_t* keycode) {
   }
 }
 
-void sendKeyboardKey(uint8_t key) {
+// Send a raw USB HID keycode with an optional modifier byte.
+// This is the primary function used for slot execution.
+void sendKeyboardReport(uint8_t keycode, uint8_t modifier = 0) {
   if (!TinyUSBDevice.mounted()) return;
-  uint8_t modifier = 0;
-  uint8_t keycode = 0;
-
-  if (key < 0x20) {
-    keycode = key;
-  } else if (!asciiToHid(key, &modifier, &keycode)) {
-    return;
-  }
-
-  uint8_t keycodes[6] = {0};
-  keycodes[0] = keycode;
+  uint8_t keycodes[6] = {keycode, 0, 0, 0, 0, 0};
   tud_hid_keyboard_report(1, modifier, keycodes);
   delay(10);
   uint8_t empty[6] = {0};
   tud_hid_keyboard_report(1, 0, empty);
+}
+
+// Legacy ASCII → HID wrapper (used only for text output, not slot execution).
+void sendKeyboardKey(uint8_t ascii) {
+  if (!TinyUSBDevice.mounted()) return;
+  uint8_t modifier = 0, keycode = 0;
+  if (ascii < 0x20) {
+    keycode = ascii;
+  } else if (!asciiToHid(ascii, &modifier, &keycode)) {
+    return;
+  }
+  sendKeyboardReport(keycode, modifier);
 }
 
 void sendConsumerKey(uint16_t key) {
@@ -239,9 +244,9 @@ uint32_t hexToRGB(uint32_t hexColor, uint32_t brightnessPercent = 100) {
 void clearModeSlots(uint8_t modeIndex) {
   if (modeIndex >= MODE_COUNT) return;
   for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
-    modeSlots[modeIndex][i].irCode = 0;
-    modeSlots[modeIndex][i].key = 0;
-    modeSlots[modeIndex][i].type = SLOT_NONE;
+    modeSlots[modeIndex][i] = {0, 0, SLOT_NONE, 0};
+    for (uint8_t s = 0; s < MAX_COMBO_STEPS; s++)
+      comboData[modeIndex][i][s] = {0, 0, 0};
   }
 }
 
@@ -283,6 +288,7 @@ uint8_t parseSlotType(JsonVariant typeVar) {
     if (strcmp(typeStr, "keyboard") == 0)    return SLOT_KEYBOARD;
     if (strcmp(typeStr, "consumer") == 0)    return SLOT_CONSUMER;
     if (strcmp(typeStr, "mode_switch") == 0) return SLOT_MODE_SWITCH;
+    if (strcmp(typeStr, "combo") == 0)       return SLOT_COMBO;
   }
   if (typeVar.is<uint8_t>()) {
     uint8_t typeVal = typeVar.as<uint8_t>();
@@ -340,28 +346,42 @@ void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
   uint8_t slotIndex = 0;
   for (JsonObject slot : slots) {
     if (slotIndex >= MAX_MAPPINGS) break;
-
-    if (!slot["irCode"].is<const char*>()) {
-      slotIndex++;
-      continue;
-    }
+    if (!slot["irCode"].is<const char*>()) { slotIndex++; continue; }
 
     const char* irCodeStr = slot["irCode"];
+    uint32_t irCode = strtoul(irCodeStr, NULL, 16);
     uint8_t typeVal = parseSlotType(slot["type"]);
-    if (typeVal == SLOT_NONE) {
+    if (typeVal == SLOT_NONE) { slotIndex++; continue; }
+
+    if (typeVal == SLOT_COMBO) {
+      if (!slot["steps"].is<JsonArray>()) { slotIndex++; continue; }
+      uint8_t stepCount = 0;
+      for (JsonObject step : slot["steps"].as<JsonArray>()) {
+        if (stepCount >= MAX_COMBO_STEPS) break;
+        uint8_t stepType = parseSlotType(step["type"]);
+        if (stepType != SLOT_KEYBOARD && stepType != SLOT_CONSUMER) continue;
+        uint16_t stepKey = 0;
+        if (!parseKeyValue(step["key"], &stepKey)) continue;
+        uint8_t stepMods = 0;
+        if (step["mods"].is<const char*>())
+          stepMods = (uint8_t)strtoul(step["mods"].as<const char*>(), NULL, 16);
+        comboData[modeIndex][slotIndex][stepCount] = {stepKey, stepType, stepMods};
+        stepCount++;
+      }
+      modeSlots[modeIndex][slotIndex] = {irCode, stepCount, SLOT_COMBO, 0};
       slotIndex++;
       continue;
     }
 
     uint16_t keyVal = 0;
     if (typeVal != SLOT_MODE_SWITCH && !parseKeyValue(slot["key"], &keyVal)) {
-      slotIndex++;
-      continue;
+      slotIndex++; continue;
     }
+    uint8_t modsVal = 0;
+    if (slot["mods"].is<const char*>())
+      modsVal = (uint8_t)strtoul(slot["mods"].as<const char*>(), NULL, 16);
 
-    modeSlots[modeIndex][slotIndex].irCode = strtoul(irCodeStr, NULL, 16);
-    modeSlots[modeIndex][slotIndex].key = keyVal;
-    modeSlots[modeIndex][slotIndex].type = typeVal;
+    modeSlots[modeIndex][slotIndex] = {irCode, keyVal, typeVal, modsVal};
     slotIndex++;
   }
 }
@@ -479,10 +499,10 @@ void buildSettingsJson(JsonObject doc) {
     JsonArray slots = mode["slots"].to<JsonArray>();
 
     for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
-      JsonObject slot = slots.add<JsonObject>();
       IRSlot current = modeSlots[modeIndex][i];
       if (current.type == SLOT_NONE) continue;
 
+      JsonObject slot = slots.add<JsonObject>();
       char irCodeStr[12];
       formatHex(irCodeStr, sizeof(irCodeStr), current.irCode, 8);
       slot["irCode"] = irCodeStr;
@@ -492,6 +512,11 @@ void buildSettingsJson(JsonObject doc) {
         char keyStr[6];
         formatHex(keyStr, sizeof(keyStr), current.key, 2);
         slot["key"] = keyStr;
+        if (current.mods) {
+          char modsStr[6];
+          formatHex(modsStr, sizeof(modsStr), current.mods, 2);
+          slot["mods"] = modsStr;
+        }
       } else if (current.type == SLOT_CONSUMER) {
         slot["type"] = "consumer";
         char keyStr[8];
@@ -499,6 +524,28 @@ void buildSettingsJson(JsonObject doc) {
         slot["key"] = keyStr;
       } else if (current.type == SLOT_MODE_SWITCH) {
         slot["type"] = "mode_switch";
+      } else if (current.type == SLOT_COMBO) {
+        slot["type"] = "combo";
+        JsonArray steps = slot["steps"].to<JsonArray>();
+        uint8_t stepCount = (uint8_t)current.key;
+        for (uint8_t s = 0; s < stepCount && s < MAX_COMBO_STEPS; s++) {
+          ComboStep cs = comboData[modeIndex][i][s];
+          JsonObject step = steps.add<JsonObject>();
+          char keyStr[8];
+          if (cs.type == SLOT_KEYBOARD) {
+            step["type"] = "keyboard";
+            formatHex(keyStr, sizeof(keyStr), cs.key, 2);
+          } else {
+            step["type"] = "consumer";
+            formatHex(keyStr, sizeof(keyStr), cs.key, 4);
+          }
+          step["key"] = keyStr;
+          if (cs.mods) {
+            char modsStr[6];
+            formatHex(modsStr, sizeof(modsStr), cs.mods, 2);
+            step["mods"] = modsStr;
+          }
+        }
       }
     }
   }
@@ -695,18 +742,34 @@ void loop() {
       if (slotIndex >= 0) {
         IRSlot slot = modeSlots[currentMode][slotIndex];
         if (slot.type == SLOT_KEYBOARD) {
-          sendKeyboardKey((uint8_t)slot.key);
-          Serial.print("Sent keyboard key: ");
-          Serial.println(slot.key, HEX);
+          sendKeyboardReport((uint8_t)slot.key, slot.mods);
+          Serial.print("Sent keyboard key: 0x");
+          Serial.print(slot.key, HEX);
+          if (slot.mods) { Serial.print(" mods: 0x"); Serial.print(slot.mods, HEX); }
+          Serial.println();
         } else if (slot.type == SLOT_CONSUMER) {
           consumerWrite(slot.key);
-          Serial.print("Sent consumer key: ");
+          Serial.print("Sent consumer key: 0x");
           Serial.println(slot.key, HEX);
         } else if (slot.type == SLOT_MODE_SWITCH) {
           currentMode = (currentMode + 1) % numModes;
           updateLED();
           Serial.print("Slot mode switch: ");
           Serial.println(currentMode);
+        } else if (slot.type == SLOT_COMBO) {
+          uint8_t stepCount = (uint8_t)slot.key;
+          for (uint8_t s = 0; s < stepCount && s < MAX_COMBO_STEPS; s++) {
+            ComboStep cs = comboData[currentMode][slotIndex][s];
+            if (cs.type == SLOT_KEYBOARD) {
+              sendKeyboardReport((uint8_t)cs.key, cs.mods);
+            } else if (cs.type == SLOT_CONSUMER) {
+              consumerWrite(cs.key);
+            }
+            delay(20);
+          }
+          Serial.print("Sent combo (");
+          Serial.print(stepCount);
+          Serial.println(" steps)");
         }
       }
     }

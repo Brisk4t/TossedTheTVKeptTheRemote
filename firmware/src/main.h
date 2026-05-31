@@ -23,25 +23,35 @@
 
 // LittleFS config file
 #define MAPPINGS_CONFIG_FILE "/settings.json"
-#define MAX_MAPPINGS 20
-#define MODE_COUNT 5
+#define MAX_MAPPINGS    20
+#define MODE_COUNT       5
+#define MAX_COMBO_STEPS  8
 
 
 enum IRSlotType : uint8_t {
-  SLOT_NONE = 0,
-  SLOT_KEYBOARD = 1,
-  SLOT_CONSUMER = 2,
-  SLOT_MODE_SWITCH = 3
+  SLOT_NONE        = 0,
+  SLOT_KEYBOARD    = 1,
+  SLOT_CONSUMER    = 2,
+  SLOT_MODE_SWITCH = 3,
+  SLOT_COMBO       = 4
 };
 
-struct IRSlot
-{
-  uint32_t irCode;
+// One step inside a combo sequence
+struct ComboStep {
   uint16_t key;
-  uint8_t type;
+  uint8_t  type;  // SLOT_KEYBOARD or SLOT_CONSUMER
+  uint8_t  mods;  // USB HID modifier byte
+};
+
+struct IRSlot {
+  uint32_t irCode;
+  uint16_t key;   // For SLOT_COMBO: step count. Otherwise: HID usage ID.
+  uint8_t  type;
+  uint8_t  mods;  // USB HID modifier byte (keyboard slots only)
 };
 
 // Runtime slots (loaded from JSON)
-extern IRSlot modeSlots[MODE_COUNT][MAX_MAPPINGS];
+extern IRSlot    modeSlots[MODE_COUNT][MAX_MAPPINGS];
+extern ComboStep comboData[MODE_COUNT][MAX_MAPPINGS][MAX_COMBO_STEPS];
 
 
