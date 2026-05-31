@@ -31,8 +31,10 @@ jobs:
           key: ${{ runner.os }}-pio-${{ hashFiles('firmware/platformio.ini') }}
           restore-keys: ${{ runner.os }}-pio-
 
-      - name: Install PlatformIO
-        run: pip install platformio
+      - name: Install PlatformIO and tools
+        run: |
+          pip install platformio
+          pip install mklittlefs
 
       - name: Build (unified)
         working-directory: firmware
