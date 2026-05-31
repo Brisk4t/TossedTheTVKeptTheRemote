@@ -9,7 +9,6 @@ const keyPresetSelect  = document.getElementById("keyPresetSelect");
 const comboEditor      = document.getElementById("comboEditor");
 const comboStepList    = document.getElementById("comboStepList");
 const comboCaptureBtn  = document.getElementById("comboCaptureBtn");
-const typeSelect       = document.getElementById("typeSelect");
 const learnBtn        = document.getElementById("learnBtn");
 const clearBtn        = document.getElementById("clearBtn");
 const jsonPanel       = document.getElementById("jsonPanel");
@@ -96,7 +95,8 @@ let autoAddActive = false;
 let autoAddStep   = null;   // "ir" | "hid"
 let autoAddIrCode = null;
 let captureComboActive = false;
-let comboSteps = [];  // [{ type, key, mods? }]
+let comboSteps  = [];  // [{ type, key, mods? }]
+let pendingMods = 0;   // bitmask from UI modifier toggles
 
 // ── Label helpers ─────────────────────────────────────────────
 function getLabel(irCode) {
@@ -178,16 +178,23 @@ function keyEventToHid(e) {
                   (e.altKey  ? 0x04 : 0) | (e.metaKey  ? 0x08 : 0);
   return modsNum ? { ...base, mods: "0x" + modsNum.toString(16).toUpperCase() } : { ...base };
 }
-function getHidLabel(type, key) {
+function getHidLabel(type, key, mods) {
   if (!key) return null;
-  const target = `${type}:${normalizeHex(key)}`.toUpperCase();
+  const modsNum  = mods ? parseInt(mods, 16) : 0;
+  const typeNorm = (type || "keyboard").toUpperCase();
+  const keyNorm  = normalizeHex(key).toUpperCase();
   for (const opt of keyPresetSelect.options) {
-    if (opt.value.toUpperCase() === target) return opt.textContent;
+    if (opt.value === "custom" || opt.value === "mode_switch") continue;
+    const parts   = opt.value.split(":");
+    const optType = parts[0].toUpperCase();
+    const optKey  = parts[1] ? normalizeHex(parts[1]).toUpperCase() : "";
+    const optMods = parts[2] ? parseInt(parts[2], 16) : 0;
+    if (optType === typeNorm && optKey === keyNorm && optMods === modsNum) return opt.textContent;
   }
   return null;
 }
-function getHidKeyLabel(type, key) {
-  const label = getHidLabel(type, key);
+function getHidKeyLabel(type, key, mods) {
+  const label = getHidLabel(type, key, mods);
   if (label) return label;
   const code = parseInt(key, 16);
   if (type === "keyboard") {
@@ -234,7 +241,7 @@ function renderComboSteps() {
     }
     const kl = document.createElement("span");
     kl.className = "combo-key-label";
-    kl.textContent = getHidKeyLabel(step.type, step.key);
+    kl.textContent = getHidKeyLabel(step.type, step.key, step.mods);
     chip.appendChild(kl);
     const rm = document.createElement("button");
     rm.type = "button";
@@ -252,6 +259,8 @@ function startComboCapture() {
 }
 function stopComboCapture() {
   captureComboActive = false;
+  pendingMods = 0;
+  document.querySelectorAll(".combo-mod-toggle").forEach(b => b.classList.remove("active"));
   comboCaptureBtn.textContent = "+ Add Key";
   comboCaptureBtn.classList.remove("capturing");
 }
@@ -262,22 +271,24 @@ function normalizeHex(hex) {
   return hex.replace(/^0x0*([0-9a-fA-F])/i, "0x$1");
 }
 
-function findPreset(key, type) {
+function findPreset(key, type, mods) {
   if (type === "mode_switch") return "mode_switch";
   if (!key) return "custom";
-  const target = `${type}:${normalizeHex(key)}`.toUpperCase();
+  const modsNum  = mods ? parseInt(mods, 16) : 0;
+  const typeNorm = (type || "keyboard").toUpperCase();
+  const keyNorm  = normalizeHex(key).toUpperCase();
   for (const opt of keyPresetSelect.options) {
-    if (opt.value !== "custom" && opt.value !== "mode_switch" &&
-        opt.value.toUpperCase() === target) return opt.value;
+    if (opt.value === "custom" || opt.value === "mode_switch") continue;
+    const parts   = opt.value.split(":");
+    const optType = parts[0].toUpperCase();
+    const optKey  = parts[1] ? normalizeHex(parts[1]).toUpperCase() : "";
+    const optMods = parts[2] ? parseInt(parts[2], 16) : 0;
+    if (optType === typeNorm && optKey === keyNorm && optMods === modsNum) return opt.value;
   }
   return "custom";
 }
 function applyPresetUi(preset) {
-  const isModeSwitch = preset === "mode_switch";
-  const isCustom     = preset === "custom";
-  comboEditor.style.display = isCustom ? "flex" : "none";
-  typeSelect.closest("label").style.display = (isModeSwitch || isCustom) ? "none" : "";
-  if (!isModeSwitch && !isCustom) typeSelect.value = preset.split(":")[0];
+  comboEditor.style.display = preset === "custom" ? "flex" : "none";
 }
 
 // ── Log ───────────────────────────────────────────────────────
@@ -815,8 +826,7 @@ function selectButton(idx) {
   detailTitle.textContent = (irCode && labels[irCode]) ? labels[irCode] : "Selected Button";
 
   const isCombo = slot.type === "combo";
-  const hasMods = slot.mods && parseInt(slot.mods, 16) > 0;
-  const preset  = (isCombo || hasMods) ? "custom" : findPreset(slot.key, slot.type || "keyboard");
+  const preset  = isCombo ? "custom" : findPreset(slot.key, slot.type || "keyboard", slot.mods || "");
   keyPresetSelect.value = preset;
 
   if (preset === "custom") {
@@ -833,7 +843,6 @@ function selectButton(idx) {
   }
 
   applyPresetUi(preset);
-  if (preset !== "mode_switch" && preset !== "custom") typeSelect.value = slot.type || "keyboard";
 }
 
 function clearDetailPanel() {
@@ -841,11 +850,11 @@ function clearDetailPanel() {
   labelInput.value      = "";
   irInput.value         = "";
   keyPresetSelect.value = "custom";
-  comboSteps = [];
+  comboSteps  = [];
+  pendingMods = 0;
   stopComboCapture();
   renderComboSteps();
   applyPresetUi("custom");
-  typeSelect.value = "keyboard";
 }
 
 function updateSlotFromInputs() {
@@ -876,9 +885,9 @@ function updateSlotFromInputs() {
   if (preset === "mode_switch") {
     slotData = { type: "mode_switch", key: "" };
   } else if (preset !== "custom") {
-    const [pType, pCode] = preset.split(":");
-    slotData = { type: pType, key: pCode };
-    typeSelect.value = pType;
+    const parts = preset.split(":");
+    slotData = { type: parts[0], key: parts[1] };
+    if (parts[2]) slotData.mods = parts[2];
   } else {
     slotData = comboStepsToSlotData();
   }
@@ -1003,8 +1012,10 @@ document.addEventListener("keydown", (e) => {
     const hid = keyEventToHid(e);
     if (!hid) { logLine(`Unrecognized key "${e.key}"`); return; }
     e.preventDefault();
+    const physMods = hid.mods ? parseInt(hid.mods, 16) : 0;
+    const modsNum  = pendingMods | physMods;
     const step = { type: hid.type, key: hid.key };
-    if (hid.mods) step.mods = hid.mods;
+    if (modsNum) step.mods = "0x" + modsNum.toString(16).toUpperCase();
     comboSteps.push(step);
     renderComboSteps();
     stopComboCapture();
@@ -1015,6 +1026,7 @@ document.addEventListener("keydown", (e) => {
   // Auto-Add HID step
   if (!autoAddActive || autoAddStep !== "hid") return;
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
 
   const hid = keyEventToHid(e);
   if (!hid) { logLine(`Auto-Add: unrecognized key "${e.key}" — try again.`); return; }
@@ -1029,7 +1041,7 @@ document.addEventListener("keydown", (e) => {
 
   setSlotByIrCode(currentModeIndex, autoAddIrCode, slotDataFromSlot(hid));
 
-  const label = getHidLabel(hid.type, hid.key);
+  const label = getHidLabel(hid.type, hid.key, hid.mods);
   if (label) setLabel(autoAddIrCode, label);
 
   syncEditor();
@@ -1077,22 +1089,18 @@ comboCaptureBtn.addEventListener("click", () => {
   else startComboCapture();
 });
 
+document.querySelectorAll(".combo-mod-toggle").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const bit = parseInt(btn.dataset.bit);
+    pendingMods ^= bit;
+    btn.classList.toggle("active", !!(pendingMods & bit));
+  });
+});
+
 // irInput is now editable — changing it reassigns the layout button's IR code
 irInput.addEventListener("change", updateSlotFromInputs);
 
-typeSelect.addEventListener("change", () => {
-  const val = keyPresetSelect.value;
-  if (val !== "custom" && val !== "mode_switch") {
-    const [presetType] = val.split(":");
-    if (typeSelect.value !== presetType) {
-      keyPresetSelect.value = "custom";
-      comboSteps = [];
-      renderComboSteps();
-      applyPresetUi("custom");
-    }
-  }
-  updateSlotFromInputs();
-});
 
 labelInput.addEventListener("input", updateSlotFromInputs);
 

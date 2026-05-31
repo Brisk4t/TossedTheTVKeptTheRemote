@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>IR HID Config</title>
+    <title>TTVKTR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
@@ -13,8 +13,8 @@
     <main class="shell">
       <header class="hero">
         <div>
-          <h1>IR HID Config</h1>
-          <p class="lede">Live remap your IR codes and save them to the device.</p>
+          <h1>TossedTheTVKeptTheRemote</h1>
+          <p class="lede">Use IR remotes as USB HID devices for your computer.</p>
         </div>
         <button id="connectBtn" class="connect-status-btn">Click to Connect</button>
       </header>
@@ -139,16 +139,15 @@
                   </optgroup>
                 </select>
                 <div id="comboEditor" class="combo-editor">
+                  <div class="combo-mod-bar">
+                    <button type="button" class="combo-mod-toggle ghost" data-bit="1">Ctrl</button>
+                    <button type="button" class="combo-mod-toggle ghost" data-bit="2">Shift</button>
+                    <button type="button" class="combo-mod-toggle ghost" data-bit="4">Alt</button>
+                    <button type="button" class="combo-mod-toggle ghost" data-bit="8">Win</button>
+                  </div>
                   <div id="comboStepList" class="combo-step-list"></div>
                   <button type="button" id="comboCaptureBtn" class="ghost combo-capture-btn">+ Add Key</button>
                 </div>
-              </label>
-              <label>
-                Type
-                <select id="typeSelect">
-                  <option value="keyboard">Keyboard</option>
-                  <option value="consumer">Consumer</option>
-                </select>
               </label>
               <div class="hint">
                 Click Learn IR, then press the remote button.

@@ -676,6 +676,30 @@ h1 {
   user-select: none;
 }
 
+.combo-mod-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.combo-mod-toggle {
+  padding: 3px 9px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  box-shadow: none;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.combo-mod-toggle:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.combo-mod-toggle.active {
+  background: rgba(224, 180, 92, 0.18);
+  color: var(--accent);
+  border-color: rgba(224, 180, 92, 0.5);
+}
+
 .combo-capture-btn {
   align-self: flex-start;
   padding: 5px 10px;
