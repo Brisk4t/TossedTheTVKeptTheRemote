@@ -1,86 +1,200 @@
-You know that feeling when you think, huh I think I..
+<div align="center">
 
-# Tossed the TV but Kept the Remote
+# Tossed The TV — Kept The Remote
 <div>
-  <img src="https://img.shields.io/badge/-Arduino-00979D?style=for-the-badge&logo=Arduino&logoColor=white&logoSize=auto" alt="Arduino"/>
-  <img src="https://img.shields.io/badge/-Raspberry_Pi-C51A4A?style=for-the-badge&logo=Raspberry-Pi" alt="Raspberry Pi"/>
-  <img src="https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white&logoSize=auto" alt="C++"/>
+  	<img src="https://img.shields.io/badge/-Raspberry_Pi-C51A4A?style=for-the-badge&logo=Raspberry-Pi" alt="Raspberry Pi"/>
+  	<img src="https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++"/>
+  	<img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript"/>
+	<img src="https://img.shields.io/badge/PlatformIO-%23222.svg?style=for-the-badge&logo=platformio&logoColor=%23f5822a" alt="PlatformIO"/>
 </div>
 
-### Yeah that's what this is for.
-Turn an RP2040 (or other USB-capable MCU) into a USB HID device that receives IR remote codes and maps them to USB HID commands. Reuse old TV remotes as media remotes for media centers, HTPCs, and mind control(?).
-
-**Key Features**
-- **IR to HID mapping**: Receive IR codes from a standard IR receiver and map them to Consumer/Keyboard HID usages (play/pause, volume, next track, etc.).
-- **PlatformIO-based firmware**: Build and flash using PlatformIO (`firmware/` contains `platformio.ini` and source).
-- **Configurable mappings**: Mapping file located at `firmware/data/settings.json` (JSON format).
-- **RP2040-first**: Tested on RP2040 boards (Pico, Pico W, etc.), but design supports any USB-capable MCU supported by PlatformIO.
-
-**Repository Layout**
-- `firmware/`: PlatformIO project with firmware source.
-	- `platformio.ini`: Build configuration and environments.
-	- `src/`: Firmware source (`main.cpp`, `main.h`, ...).
-	- `data/`: Optional data partition for runtime-configurable files (e.g. `settings.json`).
-- `Readme.md`: This file.
-
-**Hardware**
-- MCU: RP2040 (recommended) or any USB-capable MCU supported by PlatformIO.
-- IR receiver: standard 38 kHz receiver module (e.g., TSOP382xx series).
-- Wiring (typical):
-	- **IR module VCC**: `3.3V` (do NOT use 5V with RP2040)
-	- **IR module GND**: `GND`
-	- **IR module OUT**: connect to a free GPIO pin (for example `1`, specify the pin in settings.json).
-
-Note: Exact GPIO used by the firmware may be configurable. Check `firmware/src/main.cpp` or `firmware/data/settings.json` for the configured pin.
+### There are way too many old TV remotes in the garbage dump.... And way too many overpriced "powerpoint clickers" on amazon. Its quite appalling. 
 
 
-![RP2040](https://www.waveshare.com/img/devkit/RP2040-Zero/RP2040-Zero-details-7.jpg)
+All you need is $5, an RP2040 and 5 minutes to turn that old, suspiciously sticky T.V. remote into a fully functional _USB Keyboard / Clicker / Thingy_ that you can reprogram on the fly like your favorite **hackerman keyboard**.  
+</div>
 
-**Build & Flash (PlatformIO)**
+![App](/images/app.png)
 
-From the `firmware/` folder you can build and upload with PlatformIO. Example PowerShell commands:
+
+The firmware receives IR codes from a standard 38 kHz receiver and translates them to USB HID reports based on a JSON configuration stored on the device's filesystem. A browser-based config tool communicates over Web Serial to let you map buttons, learn IR codes, and arrange layouts.
+
+
+# Hardware 🛠️
+
+* USB-Capable microcontroller / dev board RP2040 board Pico, Pico W, RP2040-Zero, etc.
+* IR receiver 38 kHz module (TSOPxx or equivalent).
+* NeoPixel LED Single WS2812 for layer colour feedback.
+
+**Wiring (defaults — all configurable in settings)**
+
+| RP2040 Pin | Component | Component Pin |
+|------------|-----------|---------------|
+| 3.3V | IR receiver | VCC |
+| GND | IR receiver | GND |
+| GPIO 28 | IR receiver | OUT |
+| 3.3V | NeoPixel | VCC |
+| GND | NeoPixel | GND |
+| GPIO 16 | NeoPixel | DIN |
+
+
+# Quick Start
+
+>[!NOTE] **Web Serial is Chromium only** must use a Chromium-based browser (Chrome / Edge / Brave). Firefox does not support Web Serial.
+
+>[!TIP] Pre-built `.uf2` images are available on the [Releases](../../releases) page — download the latest and drag it onto the board's USB mass-storage drive.
+
+1. Download the most recently leased ```*.uf2``` file.
+2. Hold the ```BOOTSEL``` / ```BOOT``` button on the RP20xx board and plug it in to your computer / press reset (if already plugged in)
+3. Copy the ```*.uf2``` to the newly discovered USB-Drive
+4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
+5. Connect and start adding buttons to the layout.
+
+# Repository layout
+
+```
+firmware/
+  platformio.ini        — PlatformIO build config
+  src/
+    main.cpp / main.h   — Core firmware
+    webserial.cpp/.h    — JSON serial protocol handler
+    settings.h          — JSON doc size and function declarations
+  data/
+    settings.json       — Runtime config (flashed to LittleFS)
+web/
+  index.html            — Config UI
+  app.js                — All UI logic
+  styles.css            — Styles
+```
+
+
+
+
+## Build from source & flash
+
+To build from source, requires [PlatformIO](https://platformio.org/).
 
 ```powershell
 cd firmware
-run --target buildunified --environment pico          # build
-pio run -t upload  # build and upload (selected environment in platformio.ini)
-pio device monitor --baud 115200  # open serial monitor
+pio run -t upload              # build and upload firmware
+pio run -t uploadfs            # build and upload data partition (settings.json)
 ```
 
-If your board uses UF2 flashing (typical for many RP2040 workflows) and PlatformIO doesn't upload automatically, you can build and copy the generated `firmware_with_fs.uf2` file to the board's mass-storage drive.
+For UF2 boards: `pio run -e pico` and `pio run -e pico -t buildfs` produce `firmware.uf2` and `littlefs.uf2` inside `.pio/build/pico/`. Concatenate them (`cat firmware.uf2 littlefs.uf2 > firmware_with_fs.uf2`) and drag the combined file onto the board's mass-storage drive.
 
-**Configuration: `settings.json`**
+---
 
-The firmware loads mapping rules from `firmware/data/settings.json` when present. The format is a simple JSON object that maps IR codes (strings) to HID action names. Example:
+## Config UI
+
+The config UI is deployed to GitHub Pages at **https://brisk4t.github.io/TossedTheTVKeptTheRemote/**. You can also open `web/index.html` locally in any Chromium-based browser (Chrome, Edge) — Web Serial is required.
+
+1. Click **Click to Connect** and select the device's serial port.
+2. Settings load automatically from the device.
+3. Use the **Layers** tabs to switch between mapping contexts.
+4. Select a button in the grid, then assign a key from the dropdown or compose a custom combo.
+5. Click **Apply** to write changes back to the device.
+
+### Layout editing
+
+Each layer can have one or more **layouts** — named grids of buttons. Enter edit mode with **Edit Layout** to drag buttons around, add/remove slots, or use **Auto-Add** to rapidly bind IR codes to keys by pressing remote buttons followed by the target keyboard key.
+
+### Key types
+
+| Type | Description |
+|------|-------------|
+| Preset | Single keyboard or consumer HID key from the dropdown |
+| Custom | Compose a sequence of keys and modifiers using the combo editor |
+| Mode Switch | Advance to the next layer |
+
+**Custom combos** support:
+- Modifier chips (Ctrl / Shift / Alt / Win) toggled before capturing a key
+- Multiple steps chained with `→` (e.g. `Ctrl+A → Delete → Tab`)
+- Text steps that type a literal string character by character
+
+---
+
+## Settings format
+
+Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads and writes this format over serial.
 
 ```json
 {
-	"0x00FFA25D": "a",
-	"0x00FF629D": " ",
-	"0x00FFA857": "0xCD",
+  "ir": {
+    "modeChangeCode": "0xC40387EE",
+    "modeCount": 2,
+    "receivePin": 28,
+    "handleRepeat": true,
+    "repeatInitialDelayReports": 5
+  },
+  "led": {
+    "pin": 16,
+    "modeColors": ["0xFF0040", "0x0080FF"],
+    "brightnessPercent": 10
+  },
+  "modes": [
+    {
+      "name": "Layer 1",
+      "slots": [
+        { "irCode": "0xC40387EE", "type": "consumer", "key": "0xCD" },
+        { "irCode": "0x...",      "type": "keyboard",  "key": "0x28" },
+        { "irCode": "0x...",      "type": "keyboard",  "key": "0x1D", "mods": "0x01" },
+        { "irCode": "0x...",      "type": "mode_switch" },
+        { "irCode": "0x...",      "type": "text",  "value": "hello world" },
+        { "irCode": "0x...",      "type": "combo", "steps": [
+          { "type": "keyboard", "key": "0x04", "mods": "0x01" },
+          { "type": "keyboard", "key": "0x4C" }
+        ]}
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "name": "Default Layout",
+      "buttons": [
+        { "irCode": "0x...", "x": 0, "y": 0 },
+        { "irCode": "0x...", "x": 1, "y": 0 }
+      ]
+    }
+  ]
 }
 ```
 
-- **IR code keys**: The IR codes depend on your remote and decoder (often printed as hex). Capture them with the serial monitor (see below).
+### Slot types
+
+| `type` | Required fields | Notes |
+|--------|----------------|-------|
+| `keyboard` | `key` (USB HID usage ID) | Optional `mods` byte (Ctrl=0x01, Shift=0x02, Alt=0x04, Win=0x08) |
+| `consumer` | `key` (USB HID consumer usage ID) | Volume, media, etc. |
+| `mode_switch` | — | Cycles to the next layer |
+| `text` | `value` (string) | Sends each character as individual keystrokes |
+| `combo` | `steps` (array) | Each step is a `keyboard`/`consumer`/`text` entry |
+
+### Firmware limits
+
+| Limit | Value |
+|-------|-------|
+| Max layers | 5 |
+| Max buttons per layer | 20 |
+| Max steps per combo | 8 |
+| Max text length per step | 48 characters |
+
+---
 
 
-**Capturing IR codes**
-- Open the serial monitor:
+## Troubleshooting
 
-```powershell
-cd firmware
-pio device monitor --baud 115200
-```
-
-- Power the board and press a button on your remote while watching the monitor — the firmware will print the received IR code (hex). Use that hex string as the key in `settings.json`.
+**No IR codes received** — check receiver wiring (VCC/GND/OUT) and ensure the module is running at 3.3 V, not 5 V.
 
 
-**Troubleshooting**
-- No IR codes printed: check wiring (VCC/GND/OUT), ensure receiver is oriented correctly and running at 3.3V.
-- Incorrect codes / noise: try different IR libraries or adjust receiver placement.
-- HID not recognized by host: ensure the MCU firmware enumerates as a USB HID device; verify platformio environment matches your board.
+**Settings not persisting** — ensure the data partition was flashed (`pio run -t uploadfs`). The firmware falls back to defaults if `settings.json` is absent.
 
-**Extending & Customizing**
-- Add or change mappings in `firmware/data/settings.json` and reboot the board (or re-flash if your build doesn't include a data partition).
-- Add support for new HID actions by updating the firmware HID mapping table (`src` code).
-- Refer to [The Arduino Keboard Library Source](https://github.com/arduino-libraries/Keyboard/blob/master/src/Keyboard.h) as a reference for raw HID code (used when the key you're trying to press is a non-printing character e.g. Arrow Keys)
+**HID not recognised** — verify the correct PlatformIO environment is selected for your board. RP2040 boards require TinyUSB; check `platformio.ini`.
+
+
+## Acknowledgements (Praise the open source)
+
+- **[IRremote](https://github.com/Arduino-IRremote/Arduino-IRremote)** — IR receive/decode library by the Arduino-IRremote team
+- **[ArduinoJson](https://arduinojson.org/)** — JSON serialisation library by Benoît Blanchon
+- **[Adafruit NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)** — WS2812 driver library by Adafruit
+- **[arduino-pico](https://github.com/earlephilhower/arduino-pico)** — RP2040 Arduino core (TinyUSB, LittleFS) by Earle F. Philhower III
+- **[platform-raspberrypi](https://github.com/maxgerhardt/platform-raspberrypi)** — PlatformIO platform for RP2040 by Maxim Gerhardt

@@ -1,0 +1,59 @@
+name: Build and release firmware
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: ${{ runner.os }}-pio-
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        working-directory: firmware
+        run: pio run -e pico
+
+      - name: Build filesystem image
+        working-directory: firmware
+        run: pio run -e pico -t buildfs
+
+      - name: Combine into single UF2
+        run: cat firmware/.pio/build/pico/firmware.uf2 firmware/.pio/build/pico/littlefs.uf2 > firmware_with_fs.uf2
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_with_fs
+          path: firmware_with_fs.uf2
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: firmware_with_fs.uf2
+          generate_release_notes: true
