@@ -36,9 +36,11 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 
 # Quick Start
 
-> [!NOTE] **Web Serial is Chromium only** must use a Chromium-based browser (Chrome / Edge / Brave). Firefox does not support Web Serial.
+> [!NOTE] 
+> **Web Serial is Chromium only** must use a Chromium-based browser (Chrome / Edge / Brave). Firefox does not support Web Serial.
 
-> [!TIP] Pre-built `.uf2` images are available on the [Releases](../../releases) page — download the latest and drag it onto the board's USB mass-storage drive.
+> [!TIP] 
+> Pre-built `.uf2` images are available on the [Releases](../../releases) page — download the latest and drag it onto the board's USB mass-storage drive.
 
 1. Download the most recently leased ```*.uf2``` file.
 2. Hold the ```BOOTSEL``` / ```BOOT``` button on the RP20xx board and plug it in to your computer / press reset (if already plugged in)
