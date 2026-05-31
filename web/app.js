@@ -30,6 +30,7 @@ const addSlotBtn      = document.getElementById("addSlotBtn");
 const autoAddBtn      = document.getElementById("autoAddBtn");
 const layoutEditHint  = document.getElementById("layoutEditHint");
 const doneEditBtn     = document.getElementById("doneEditBtn");
+const deleteLayoutBtn = document.getElementById("deleteLayoutBtn");
 const newLayoutForm   = document.getElementById("newLayoutForm");
 const layoutNameInput = document.getElementById("layoutNameInput");
 const saveLayoutBtn   = document.getElementById("saveLayoutBtn");
@@ -542,14 +543,50 @@ function renderTabs() {
   (settings?.modes || []).forEach((mode, i) => {
     const btn = document.createElement("button");
     btn.className = "tab" + (i === currentModeIndex ? " active" : "");
-    btn.title = "Click active tab to rename";
     const dotColor = settingsColorToCss(settings?.led?.modeColors?.[i] ?? DEFAULT_MODE_COLORS[i] ?? "0xFF0040");
     const dot = document.createElement("span");
     dot.className = "mode-color-dot";
     dot.style.background = dotColor;
     btn.appendChild(dot);
-    btn.appendChild(document.createTextNode(mode.name || `Layer ${i + 1}`));
-    btn.addEventListener("click", () => i === currentModeIndex ? startRenameMode(i) : switchMode(i));
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "tab-name";
+    nameSpan.textContent = mode.name || `Layer ${i + 1}`;
+    btn.appendChild(nameSpan);
+    btn.addEventListener("click", () => switchMode(i));
+
+    // If this is the active tab, render inline edit and delete icons
+    if (i === currentModeIndex) {
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "tab-icon tab-edit";
+      editBtn.title = "Rename layer";
+      editBtn.textContent = "✎";
+      editBtn.addEventListener("click", (e) => { e.stopPropagation(); startRenameMode(i); });
+      btn.appendChild(editBtn);
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "tab-icon tab-delete";
+      delBtn.title = "Delete layer";
+      delBtn.textContent = "🗑";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!settings || !Array.isArray(settings.modes) || settings.modes.length <= 1) { alert('Cannot delete the last layer.'); return; }
+        const name = settings.modes[i]?.name || `Layer ${i + 1}`;
+        if (!confirm(`Delete layer "${name}"? This will remove its mappings.`)) return;
+        settings.modes.splice(i, 1);
+        if (settings.led && Array.isArray(settings.led.modeColors)) settings.led.modeColors.splice(i, 1);
+        if (settings.ir) settings.ir.modeCount = settings.modes.length;
+        currentModeIndex = Math.max(0, Math.min(currentModeIndex, settings.modes.length - 1));
+        selectedBtnIdx = null;
+        syncEditor();
+        renderTabs();
+        renderGrid();
+        updateModeColorPicker();
+      });
+      btn.appendChild(delBtn);
+    }
+
     modeTabs.appendChild(btn);
   });
   const addBtn = document.createElement("button");
@@ -938,6 +975,26 @@ editLayoutBtn.addEventListener("click", () => setLayoutEditMode(!layoutEditMode)
 doneEditBtn.addEventListener("click",   () => setLayoutEditMode(false));
 addSlotBtn.addEventListener("click",    addButtonToLayout);
 autoAddBtn.addEventListener("click",    () => autoAddActive ? stopAutoAdd() : startAutoAdd());
+
+deleteLayoutBtn.addEventListener("click", () => {
+  if (!layoutEditMode) return;
+  const layout = getCurrentLayout();
+  if (!layout) return;
+  if (!confirm(`Delete layout "${layout.name || 'Unnamed'}"? This cannot be undone.`)) return;
+  if (!Array.isArray(settings.layouts) || settings.layouts.length <= 1) {
+    alert('Cannot delete the last layout.');
+    return;
+  }
+  settings.layouts.splice(currentLayoutIndex, 1);
+  currentLayoutIndex = Math.max(0, currentLayoutIndex - 1);
+  selectedBtnIdx = null;
+  syncEditor();
+  renderLayoutTabs();
+  renderGrid();
+  setLayoutEditMode(false);
+});
+
+// Delete currently selected layer
 
 document.addEventListener("keydown", (e) => {
   if (captureComboActive) {

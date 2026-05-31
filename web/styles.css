@@ -198,6 +198,29 @@ h1 {
   transform: none;
 }
 
+.tab .tab-name {
+  display: inline-block;
+}
+
+.tab-icon {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 0.85rem;
+  margin-left: 6px;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tab-icon:hover { background: transparent; }
+.tab-delete { color: #ff8b8b; }
+.tab-edit { color: var(--accent); }
+
 .mode-color-dot {
   width: 8px;
   height: 8px;
