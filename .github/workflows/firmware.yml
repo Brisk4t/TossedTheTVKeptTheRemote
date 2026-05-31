@@ -35,33 +35,27 @@ jobs:
         run: |
           pip install platformio
           sudo apt-get update
-          sudo apt-get install -y curl ca-certificates
-          # Try downloading prebuilt mklittlefs for common linux architectures
+          sudo apt-get install -y curl ca-certificates python3
           set -e
-          arch=$(uname -m)
-          case "$arch" in
-            x86_64|amd64)
-              url="https://github.com/earlephilhower/mklittlefs/releases/latest/download/mklittlefs-linux-amd64"
-              ;;
-            aarch64|arm64)
-              url="https://github.com/earlephilhower/mklittlefs/releases/latest/download/mklittlefs-linux-arm64"
-              ;;
-            *)
-              url=""
-              ;;
-          esac
-          downloaded=0
+            arch=$(uname -m)
+            echo "Detecting mklittlefs asset for arch: $arch"
+            sudo apt-get install -y jq
+            asset_url=$(curl -s https://api.github.com/repos/earlephilhower/mklittlefs/releases/latest | jq -r --arg arch "$arch" '.assets[] | .browser_download_url as $u | select((.name|ascii_downcase|test("linux")) and ((.name|ascii_downcase|contains($arch)) or ($arch=="x86_64" and (.name|ascii_downcase|contains("x86_64") or .name|ascii_downcase|contains("amd64"))) or ($arch=="aarch64" and (.name|ascii_downcase|contains("aarch64") or .name|ascii_downcase|contains("arm64"))))) | $u' | head -n1)
+            url="$asset_url"
           if [ -n "$url" ]; then
+            echo "Found download URL: $url"
             if curl -fsSL "$url" -o /usr/local/bin/mklittlefs; then
               chmod +x /usr/local/bin/mklittlefs
-              echo "Downloaded mklittlefs for $arch"
-              downloaded=1
+              echo "Downloaded mklittlefs"
+            else
+              echo "Download failed, will build from source"
+              url=
             fi
           fi
-          if [ "$downloaded" -ne 1 ]; then
-            echo "Prebuilt mklittlefs not found for $arch — falling back to build from source"
+          if [ -z "$url" ]; then
+            echo "Building mklittlefs from source"
             sudo apt-get install -y build-essential git
-            git clone --depth=1 https://github.com/earlephilhower/mklittlefs.git /tmp/mklittlefs
+            git clone --depth=1 --recurse-submodules https://github.com/earlephilhower/mklittlefs.git /tmp/mklittlefs
             cd /tmp/mklittlefs
             make
             sudo cp mklittlefs /usr/local/bin/
