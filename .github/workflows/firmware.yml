@@ -31,10 +31,41 @@ jobs:
           key: ${{ runner.os }}-pio-${{ hashFiles('firmware/platformio.ini') }}
           restore-keys: ${{ runner.os }}-pio-
 
-      - name: Install PlatformIO and tools
+      - name: Install PlatformIO and mklittlefs
         run: |
           pip install platformio
-          pip install mklittlefs
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          # Try downloading prebuilt mklittlefs for common linux architectures
+          set -e
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64|amd64)
+              url="https://github.com/earlephilhower/mklittlefs/releases/latest/download/mklittlefs-linux-amd64"
+              ;;
+            aarch64|arm64)
+              url="https://github.com/earlephilhower/mklittlefs/releases/latest/download/mklittlefs-linux-arm64"
+              ;;
+            *)
+              url=""
+              ;;
+          esac
+          downloaded=0
+          if [ -n "$url" ]; then
+            if curl -fsSL "$url" -o /usr/local/bin/mklittlefs; then
+              chmod +x /usr/local/bin/mklittlefs
+              echo "Downloaded mklittlefs for $arch"
+              downloaded=1
+            fi
+          fi
+          if [ "$downloaded" -ne 1 ]; then
+            echo "Prebuilt mklittlefs not found for $arch — falling back to build from source"
+            sudo apt-get install -y build-essential git
+            git clone --depth=1 https://github.com/earlephilhower/mklittlefs.git /tmp/mklittlefs
+            cd /tmp/mklittlefs
+            make
+            sudo cp mklittlefs /usr/local/bin/
+          fi
 
       - name: Build (unified)
         working-directory: firmware
