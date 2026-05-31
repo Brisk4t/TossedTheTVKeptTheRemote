@@ -34,6 +34,8 @@ char layoutsJson[4096] = "[]";
 // Runtime slots (loaded from JSON files)
 IRSlot    modeSlots[MODE_COUNT][MAX_MAPPINGS];
 ComboStep comboData[MODE_COUNT][MAX_MAPPINGS][MAX_COMBO_STEPS];
+char      slotTextData[MODE_COUNT][MAX_MAPPINGS][MAX_TEXT_STEP_LEN];
+char      comboTextData[MODE_COUNT][MAX_MAPPINGS][MAX_COMBO_STEPS][MAX_TEXT_STEP_LEN];
 
 // ------------------------------
 // USB HID (Adafruit TinyUSB)
@@ -245,8 +247,11 @@ void clearModeSlots(uint8_t modeIndex) {
   if (modeIndex >= MODE_COUNT) return;
   for (uint8_t i = 0; i < MAX_MAPPINGS; i++) {
     modeSlots[modeIndex][i] = {0, 0, SLOT_NONE, 0};
-    for (uint8_t s = 0; s < MAX_COMBO_STEPS; s++)
+    slotTextData[modeIndex][i][0] = '\0';
+    for (uint8_t s = 0; s < MAX_COMBO_STEPS; s++) {
       comboData[modeIndex][i][s] = {0, 0, 0};
+      comboTextData[modeIndex][i][s][0] = '\0';
+    }
   }
 }
 
@@ -289,6 +294,7 @@ uint8_t parseSlotType(JsonVariant typeVar) {
     if (strcmp(typeStr, "consumer") == 0)    return SLOT_CONSUMER;
     if (strcmp(typeStr, "mode_switch") == 0) return SLOT_MODE_SWITCH;
     if (strcmp(typeStr, "combo") == 0)       return SLOT_COMBO;
+    if (strcmp(typeStr, "text") == 0)        return SLOT_TEXT;
   }
   if (typeVar.is<uint8_t>()) {
     uint8_t typeVal = typeVar.as<uint8_t>();
@@ -353,12 +359,27 @@ void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
     uint8_t typeVal = parseSlotType(slot["type"]);
     if (typeVal == SLOT_NONE) { slotIndex++; continue; }
 
+    if (typeVal == SLOT_TEXT) {
+      if (!slot["value"].is<const char*>()) { slotIndex++; continue; }
+      strlcpy(slotTextData[modeIndex][slotIndex], slot["value"].as<const char*>(), MAX_TEXT_STEP_LEN);
+      modeSlots[modeIndex][slotIndex] = {irCode, 0, SLOT_TEXT, 0};
+      slotIndex++;
+      continue;
+    }
+
     if (typeVal == SLOT_COMBO) {
       if (!slot["steps"].is<JsonArray>()) { slotIndex++; continue; }
       uint8_t stepCount = 0;
       for (JsonObject step : slot["steps"].as<JsonArray>()) {
         if (stepCount >= MAX_COMBO_STEPS) break;
         uint8_t stepType = parseSlotType(step["type"]);
+        if (stepType == SLOT_TEXT) {
+          if (!step["value"].is<const char*>()) continue;
+          strlcpy(comboTextData[modeIndex][slotIndex][stepCount], step["value"].as<const char*>(), MAX_TEXT_STEP_LEN);
+          comboData[modeIndex][slotIndex][stepCount] = {0, SLOT_TEXT, 0};
+          stepCount++;
+          continue;
+        }
         if (stepType != SLOT_KEYBOARD && stepType != SLOT_CONSUMER) continue;
         uint16_t stepKey = 0;
         if (!parseKeyValue(step["key"], &stepKey)) continue;
@@ -524,6 +545,9 @@ void buildSettingsJson(JsonObject doc) {
         slot["key"] = keyStr;
       } else if (current.type == SLOT_MODE_SWITCH) {
         slot["type"] = "mode_switch";
+      } else if (current.type == SLOT_TEXT) {
+        slot["type"] = "text";
+        slot["value"] = slotTextData[modeIndex][i];
       } else if (current.type == SLOT_COMBO) {
         slot["type"] = "combo";
         JsonArray steps = slot["steps"].to<JsonArray>();
@@ -531,6 +555,11 @@ void buildSettingsJson(JsonObject doc) {
         for (uint8_t s = 0; s < stepCount && s < MAX_COMBO_STEPS; s++) {
           ComboStep cs = comboData[modeIndex][i][s];
           JsonObject step = steps.add<JsonObject>();
+          if (cs.type == SLOT_TEXT) {
+            step["type"] = "text";
+            step["value"] = comboTextData[modeIndex][i][s];
+            continue;
+          }
           char keyStr[8];
           if (cs.type == SLOT_KEYBOARD) {
             step["type"] = "keyboard";
@@ -756,11 +785,25 @@ void loop() {
           updateLED();
           Serial.print("Slot mode switch: ");
           Serial.println(currentMode);
+        } else if (slot.type == SLOT_TEXT) {
+          const char* text = slotTextData[currentMode][slotIndex];
+          for (uint8_t c = 0; text[c] != '\0'; c++) {
+            sendKeyboardKey((uint8_t)text[c]);
+            delay(10);
+          }
+          Serial.print("Sent text: ");
+          Serial.println(text);
         } else if (slot.type == SLOT_COMBO) {
           uint8_t stepCount = (uint8_t)slot.key;
           for (uint8_t s = 0; s < stepCount && s < MAX_COMBO_STEPS; s++) {
             ComboStep cs = comboData[currentMode][slotIndex][s];
-            if (cs.type == SLOT_KEYBOARD) {
+            if (cs.type == SLOT_TEXT) {
+              const char* text = comboTextData[currentMode][slotIndex][s];
+              for (uint8_t c = 0; text[c] != '\0'; c++) {
+                sendKeyboardKey((uint8_t)text[c]);
+                delay(10);
+              }
+            } else if (cs.type == SLOT_KEYBOARD) {
               sendKeyboardReport((uint8_t)cs.key, cs.mods);
             } else if (cs.type == SLOT_CONSUMER) {
               consumerWrite(cs.key);

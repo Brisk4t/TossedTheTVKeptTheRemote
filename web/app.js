@@ -9,6 +9,8 @@ const keyPresetSelect  = document.getElementById("keyPresetSelect");
 const comboEditor      = document.getElementById("comboEditor");
 const comboStepList    = document.getElementById("comboStepList");
 const comboCaptureBtn  = document.getElementById("comboCaptureBtn");
+const comboAddTextBtn  = document.getElementById("comboAddTextBtn");
+const comboTextInput   = document.getElementById("comboTextInput");
 const learnBtn        = document.getElementById("learnBtn");
 const clearBtn        = document.getElementById("clearBtn");
 const jsonPanel       = document.getElementById("jsonPanel");
@@ -206,6 +208,7 @@ function getHidKeyLabel(type, key, mods) {
 }
 function slotDataFromSlot(slot) {
   if (slot.type === "combo") return { type: "combo", steps: (slot.steps || []).map(s => ({ ...s })) };
+  if (slot.type === "text")  return { type: "text",  value: slot.value || "" };
   const d = { type: slot.type || "keyboard", key: slot.key || "" };
   if (slot.mods) d.mods = slot.mods;
   return d;
@@ -213,8 +216,9 @@ function slotDataFromSlot(slot) {
 function comboStepsToSlotData() {
   if (comboSteps.length === 0) return { type: "keyboard", key: "" };
   if (comboSteps.length === 1) {
-    const { type, key, mods } = comboSteps[0];
-    return mods ? { type, key, mods } : { type, key };
+    const s = comboSteps[0];
+    if (s.type === "text") return { type: "text", value: s.value };
+    return s.mods ? { type: s.type, key: s.key, mods: s.mods } : { type: s.type, key: s.key };
   }
   return { type: "combo", steps: comboSteps.map(s => ({ ...s })) };
 }
@@ -229,20 +233,28 @@ function renderComboSteps() {
     }
     const chip = document.createElement("div");
     chip.className = "combo-step";
-    if (step.mods) {
-      const m = parseInt(step.mods, 16);
-      [["Ctrl", 0x01], ["Shift", 0x02], ["Alt", 0x04], ["Meta", 0x08]].forEach(([name, bit]) => {
-        if (!(m & bit)) return;
-        const s = document.createElement("span");
-        s.className = "combo-mod";
-        s.textContent = name;
-        chip.appendChild(s);
-      });
+    if (step.type === "text") {
+      chip.classList.add("combo-step-text");
+      const vl = document.createElement("span");
+      vl.className = "combo-text-value";
+      vl.textContent = `"${step.value}"`;
+      chip.appendChild(vl);
+    } else {
+      if (step.mods) {
+        const m = parseInt(step.mods, 16);
+        [["Ctrl", 0x01], ["Shift", 0x02], ["Alt", 0x04], ["Win", 0x08]].forEach(([name, bit]) => {
+          if (!(m & bit)) return;
+          const s = document.createElement("span");
+          s.className = "combo-mod";
+          s.textContent = name;
+          chip.appendChild(s);
+        });
+      }
+      const kl = document.createElement("span");
+      kl.className = "combo-key-label";
+      kl.textContent = getHidKeyLabel(step.type, step.key, step.mods);
+      chip.appendChild(kl);
     }
-    const kl = document.createElement("span");
-    kl.className = "combo-key-label";
-    kl.textContent = getHidKeyLabel(step.type, step.key, step.mods);
-    chip.appendChild(kl);
     const rm = document.createElement("button");
     rm.type = "button";
     rm.className = "combo-step-remove";
@@ -311,6 +323,7 @@ function setConnected(connected) {
   checkApplyBtn();
   learnBtn.disabled = !connected;
   clearBtn.disabled = !connected;
+  if (!connected) resetLearnBtn();
 }
 
 async function connect() {
@@ -395,7 +408,7 @@ function handleResponse(line) {
         }
       }
     }
-    learnArmed = false;
+    resetLearnBtn();
     syncEditor();
     renderGrid();
     if (selectedBtnIdx !== null) selectButton(selectedBtnIdx);
@@ -832,6 +845,8 @@ function selectButton(idx) {
   if (preset === "custom") {
     if (isCombo && slot.steps) {
       comboSteps = slot.steps.map(s => ({ ...s }));
+    } else if (slot.type === "text") {
+      comboSteps = [{ type: "text", value: slot.value || "" }];
     } else if (slot.type && slot.key) {
       comboSteps = [{ type: slot.type, key: slot.key, ...(slot.mods ? { mods: slot.mods } : {}) }];
     } else {
@@ -912,8 +927,16 @@ function clearSlot() {
 async function requestLearn() {
   if (selectedBtnIdx === null) { logLine("Select a button first."); return; }
   learnArmed = true;
+  learnBtn.textContent = "Listening…";
+  learnBtn.classList.add("listening");
   await sendCommand({ op: "learn" });
   logLine("Waiting for IR code...");
+}
+
+function resetLearnBtn() {
+  learnArmed = false;
+  learnBtn.textContent = "Learn";
+  learnBtn.classList.remove("listening");
 }
 
 // ── Layout edit mode ──────────────────────────────────────────
@@ -972,6 +995,7 @@ modeColorSwatch.addEventListener("click", () => hueDropdown.classList.toggle("op
 document.addEventListener("click", (e) => {
   if (!huePickerWrap.contains(e.target)) hueDropdown.classList.remove("open");
   if (captureComboActive && !comboEditor.contains(e.target)) stopComboCapture();
+  if (!comboEditor.contains(e.target)) comboTextInput.classList.remove("active");
 });
 
 modeColorPicker.addEventListener("input", () => {
@@ -1087,6 +1111,26 @@ keyPresetSelect.addEventListener("change", () => {
 comboCaptureBtn.addEventListener("click", () => {
   if (captureComboActive) stopComboCapture();
   else startComboCapture();
+});
+
+comboAddTextBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  stopComboCapture();
+  const isOpen = comboTextInput.classList.contains("active");
+  comboTextInput.classList.toggle("active", !isOpen);
+  if (!isOpen) { comboTextInput.value = ""; comboTextInput.focus(); }
+});
+
+comboTextInput.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Escape") { comboTextInput.classList.remove("active"); return; }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const val = comboTextInput.value;
+    if (val) { comboSteps.push({ type: "text", value: val }); renderComboSteps(); updateSlotFromInputs(); }
+    comboTextInput.classList.remove("active");
+    comboTextInput.value = "";
+  }
 });
 
 document.querySelectorAll(".combo-mod-toggle").forEach(btn => {

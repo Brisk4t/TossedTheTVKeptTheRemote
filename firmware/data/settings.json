@@ -13,7 +13,7 @@
   },
   "modes": [
     {
-      "name": "Mode 1",
+      "name": "Layer 1",
       "slots": [
         {"irCode": "0xC40A87EE", "type": "keyboard", "key": "0x61"},
         {"irCode": "0xC40C87EE", "type": "keyboard", "key": "0x62"},
@@ -21,7 +21,7 @@
       ]
     },
     {
-      "name": "Mode 2",
+      "name": "Layer 2",
       "slots": [
         {"irCode": "0xC40687EE", "type": "consumer", "key": "0x00B6"},
         {"irCode": "0xC45C87EE", "type": "keyboard", "key": " "}

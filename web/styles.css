@@ -43,6 +43,27 @@ body {
   gap: 16px;
 }
 
+.github-corner {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+
+.github-corner:hover {
+  opacity: 1;
+}
+
+.github-corner img {
+  width: 40px;
+  height: 40px;
+  filter: invert(1);
+}
+
 h1 {
   font-size: clamp(2rem, 3vw, 3rem);
   letter-spacing: -0.02em;
@@ -69,15 +90,15 @@ h1 {
 }
 
 .connect-status-btn.is-connected {
-  background: rgba(123, 216, 214, 0.12);
-  color: var(--accent-2);
-  border: 1px solid rgba(123, 216, 214, 0.3);
+  background: rgba(62, 207, 106, 0.12);
+  color: #3ecf6a;
+  border: 1px solid rgba(62, 207, 106, 0.3);
   box-shadow: none;
 }
 
 .connect-status-btn.is-connected:hover {
-  background: rgba(123, 216, 214, 0.22);
-  border-color: rgba(123, 216, 214, 0.55);
+  background: rgba(62, 207, 106, 0.22);
+  border-color: rgba(62, 207, 106, 0.55);
   transform: none;
   box-shadow: none;
 }
@@ -597,6 +618,17 @@ h1 {
   box-shadow: none;
 }
 
+.input-action-btn.listening {
+  color: var(--accent);
+  border-left-color: rgba(224, 180, 92, 0.4);
+  animation: learn-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes learn-pulse {
+  0%, 100% { background: rgba(224, 180, 92, 0.08); }
+  50%       { background: rgba(224, 180, 92, 0.24); }
+}
+
 /* ── Inline mode rename input ────────────────────────────── */
 .tab-rename-input {
   background: transparent;
@@ -700,15 +732,50 @@ h1 {
   border-color: rgba(224, 180, 92, 0.5);
 }
 
+.combo-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .combo-capture-btn {
-  align-self: flex-start;
   padding: 5px 10px;
   font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
 .combo-capture-btn.capturing {
   color: var(--accent);
   border-color: rgba(224, 180, 92, 0.5);
+}
+
+.combo-text-input {
+  display: none;
+  background: rgba(10, 15, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  min-width: 120px;
+  flex: 1;
+  outline: none;
+}
+
+.combo-text-input.active {
+  display: block;
+  border-color: rgba(123, 216, 214, 0.4);
+}
+
+.combo-step-text {
+  border-color: rgba(123, 216, 214, 0.3);
+}
+
+.combo-text-value {
+  color: var(--accent-2);
+  font-style: italic;
 }
 
 /* ── Layout edit mode ────────────────────────────────────── */
