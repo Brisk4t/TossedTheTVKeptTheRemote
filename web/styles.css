@@ -148,6 +148,45 @@ h1 {
   gap: 12px;
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pin-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pin-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pin-label input[type="number"] {
+  width: 52px;
+  padding: 4px 6px;
+  background: rgba(16, 22, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.pin-label input[type="number"]::-webkit-inner-spin-button,
+.pin-label input[type="number"]::-webkit-outer-spin-button {
+  display: none;
+}
+
 /* ── Mode tabs ───────────────────────────────────────────── */
 .tabs {
   display: flex;

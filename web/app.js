@@ -39,6 +39,8 @@ const detailTitle     = document.getElementById("detailTitle");
 const mainLayout      = document.getElementById("mainLayout");
 const connectBtn      = document.getElementById("connectBtn");
 const applyBtn        = document.getElementById("applyBtn");
+const irPinInput      = document.getElementById("irPinInput");
+const ledPinInput     = document.getElementById("ledPinInput");
 
 // ── Constants ─────────────────────────────────────────────────
 const MAX_MAPPINGS = 20;
@@ -447,7 +449,13 @@ async function applySettings() {
 
 function syncEditor() {
   editor.value = JSON.stringify(settings, null, 2);
+  updatePinInputs();
   checkApplyBtn();
+}
+
+function updatePinInputs() {
+  irPinInput.value  = settings?.ir?.receivePin ?? 28;
+  ledPinInput.value = settings?.led?.pin       ?? 16;
 }
 
 function checkApplyBtn() {
@@ -467,6 +475,7 @@ function defaultSettings() {
     },
     led: {
       pin: 16,
+      colorOrder: "GRB",
       modeColors: ["0xFF0040", "0x0080FF"],
       brightnessPercent: 10,
     },
@@ -1100,6 +1109,29 @@ document.querySelectorAll(".combo-mod-toggle").forEach(btn => {
 irInput.addEventListener("change", updateSlotFromInputs);
 labelInput.addEventListener("input", updateSlotFromInputs);
 
+editor.addEventListener("input", () => {
+  try {
+    settings = JSON.parse(editor.value);
+    checkApplyBtn();
+  } catch { /* invalid JSON mid-edit — leave apply state unchanged */ }
+});
+
+irPinInput.addEventListener("input", () => {
+  const val = parseInt(irPinInput.value, 10);
+  if (isNaN(val) || val < 0 || val > 255) return;
+  ensureSettings();
+  settings.ir.receivePin = val;
+  syncEditor();
+});
+
+ledPinInput.addEventListener("input", () => {
+  const val = parseInt(ledPinInput.value, 10);
+  if (isNaN(val) || val < 0 || val > 255) return;
+  ensureSettings();
+  settings.led.pin = val;
+  syncEditor();
+});
+
 // ── Init ──────────────────────────────────────────────────────
 setConnected(false);
 loadLabels();
@@ -1111,3 +1143,4 @@ renderLayoutTabs();
 renderGrid();
 clearDetailPanel();
 updateModeColorPicker();
+updatePinInputs();

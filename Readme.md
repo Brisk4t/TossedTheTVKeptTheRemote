@@ -12,13 +12,32 @@
 ### There are way too many old TV remotes in the garbage dump.... And way too many overpriced "powerpoint clickers" on Amazon. Its quite appalling. 
 
 
-All you need is $5, an RP2040 and 5 minutes to turn that old, suspiciously sticky T.V. remote into a fully functional _USB Keyboard / Clicker / Thingy_ that you can reprogram on the fly like your favorite **hackerman keyboard**.  
+All you need is $5, an RP2040 and 5 minutes to turn that old, suspiciously sticky T.V. remote into a fully functional _USB Keyboard / Clicker / Thingy_ that you can reprogram on the fly like your favorite **hackerman keyboard**. 
+
+
+![App](/images/TTVKTR_DEMO.gif)
 </div>
 
-![App](/images/app.png)
+
+
+
+
+![App](/images/ttvktrcoveredit.png)
 
 
 The firmware receives IR codes from a standard 38 kHz receiver and translates them to USB HID reports based on a JSON configuration stored on the device's filesystem. A browser-based config tool communicates over Web Serial to let you map buttons, learn IR codes, and arrange layouts.
+
+
+## Features
+
+![App](/images/app.png)
+
+| Feature | Description |
+|---|---|
+| Custom Keybindings UI in a browser | A browser-based editor for assigning remote buttons to keys, media controls, or custom actions. |
+| Multiple Layers for one remote | One physical remote can switch between several layouts or profiles, so the same buttons do different things in different modes. |
+| RGB LED for layers (and vibes) 🔴🟢🔵 | Layer-aware RGB lighting that changes color per mode, giving clear visual feedback and a more polished feel. |
+| Complex Combos | Support for multi-step or chorded inputs, including modifier combinations, repeated presses, and chained actions. |
 
 
 # Hardware 🛠️
@@ -48,6 +67,10 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 3. Copy the ```*.uf2``` to the newly discovered USB-Drive
 4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
 5. Connect and start adding buttons to the layout.
+6. *If you used non-default wiring you can also change the pins used here. 
+
+> [!NOTE]
+> Some RGB leds use different byte orders for their colors i.e. BGR instead of RGB. Use the JSON editor on the webapp to change this setting. 
 
 
 # Config UI

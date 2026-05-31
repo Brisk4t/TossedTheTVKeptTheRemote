@@ -26,7 +26,13 @@
             <div class="tabs" id="modeTabs">
               <!-- Rendered by JS -->
             </div>
-            <button id="applyBtn" class="apply-btn" disabled>Apply</button>
+            <div class="toolbar-right">
+              <div class="pin-inputs">
+                <label class="pin-label">IR Pin<input id="irPinInput" type="number" min="0" max="255" /></label>
+                <label class="pin-label">LED Pin<input id="ledPinInput" type="number" min="0" max="255" /></label>
+              </div>
+              <button id="applyBtn" class="apply-btn" disabled>Apply</button>
+            </div>
           </div>
 
           <div class="content">

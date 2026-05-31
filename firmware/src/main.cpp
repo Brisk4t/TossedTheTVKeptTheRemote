@@ -3,13 +3,17 @@
 #include "webserial.h"
 
 // LED runtime config
-uint8_t LED_PIN_CONFIG = LED_PIN;
-uint8_t LED_BRIGHTNESS_CONFIG = LED_BRIGHTNESS_PERCENT;
+uint8_t  LED_PIN_CONFIG        = LED_PIN;
+uint8_t  LED_BRIGHTNESS_CONFIG = LED_BRIGHTNESS_PERCENT;
+uint16_t LED_ORDER_CONFIG      = NEO_GRB;
+char     LED_ORDER_STR[4]      = "GRB";
 uint32_t COLOR_CONFIG[MODE_COUNT] = {0, 0, 0, 0, 0};
 uint32_t COLOR_RAW[MODE_COUNT] = {
   DEFAULT_MODE_COLOR_0, DEFAULT_MODE_COLOR_1, DEFAULT_MODE_COLOR_2,
   DEFAULT_MODE_COLOR_3, DEFAULT_MODE_COLOR_4
 };
+
+Adafruit_NeoPixel strip(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Layout data stored as raw JSON for pass-through (firmware does not process this)
 char layoutsJson[4096] = "[]";
@@ -209,18 +213,42 @@ void sendConsumerKey(uint16_t key) {
 // ------------------------------
 // Helpers
 
+static const struct { const char* name; uint16_t type; } kColorOrders[] = {
+  { "RGB", NEO_RGB }, { "RBG", NEO_RBG },
+  { "GRB", NEO_GRB }, { "GBR", NEO_GBR },
+  { "BRG", NEO_BRG }, { "BGR", NEO_BGR },
+};
+
+static bool parseColorOrder(const char* str) {
+  for (const auto& o : kColorOrders) {
+    if (strcasecmp(str, o.name) == 0) {
+      if (LED_ORDER_CONFIG == o.type) return false;
+      LED_ORDER_CONFIG = o.type;
+      strlcpy(LED_ORDER_STR, o.name, sizeof(LED_ORDER_STR));
+      return true;
+    }
+  }
+  return false;
+}
+
 uint32_t hexToRGB(uint32_t hexColor, uint32_t brightnessPercent = 100) {
   uint8_t r = ((hexColor >> 16) & 0xFF) * brightnessPercent / 100;
   uint8_t g = ((hexColor >> 8) & 0xFF) * brightnessPercent / 100;
   uint8_t b = (hexColor & 0xFF) * brightnessPercent / 100;
-  return (((uint32_t)g << 16) | ((uint32_t)r << 8) | b); // GRB format
+  return ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 }
 
 void applyLedSettings(JsonObject led) {
-  if (led["pin"].is<uint8_t>())
-    LED_PIN_CONFIG = led["pin"];
+  bool reinit = false;
+
+  if (led["pin"].is<uint8_t>()) {
+    uint8_t p = led["pin"];
+    if (p != LED_PIN_CONFIG) { LED_PIN_CONFIG = p; reinit = true; }
+  }
   if (led["brightnessPercent"].is<uint8_t>())
     LED_BRIGHTNESS_CONFIG = led["brightnessPercent"];
+  if (led["colorOrder"].is<const char*>())
+    if (parseColorOrder(led["colorOrder"].as<const char*>())) reinit = true;
 
   if (led["modeColors"].is<JsonArray>()) {
     JsonArray colors = led["modeColors"].as<JsonArray>();
@@ -235,6 +263,11 @@ void applyLedSettings(JsonObject led) {
 
   for (uint8_t i = 0; i < MODE_COUNT; i++)
     COLOR_CONFIG[i] = hexToRGB(COLOR_RAW[i], LED_BRIGHTNESS_CONFIG);
+
+  if (reinit) {
+    strip.setPin(LED_PIN_CONFIG);
+    strip.updateType(LED_ORDER_CONFIG | NEO_KHZ800);
+  }
 }
 
 void applySettingsFromJson(JsonObject doc) {
@@ -276,6 +309,7 @@ void buildSettingsJson(JsonObject doc) {
 
   JsonObject led = doc["led"].to<JsonObject>();
   led["pin"] = LED_PIN_CONFIG;
+  led["colorOrder"] = LED_ORDER_STR;
   led["brightnessPercent"] = LED_BRIGHTNESS_CONFIG;
 
   JsonArray modeColors = led["modeColors"].to<JsonArray>();
@@ -447,8 +481,6 @@ void loadMappings() {
 // ------------------------------
 // LED
 
-Adafruit_NeoPixel strip(1, LED_PIN, NEO_GRB + NEO_KHZ800);
-
 void updateLED() {
   strip.setPixelColor(0, COLOR_CONFIG[currentMode < MODE_COUNT ? currentMode : 0]);
   strip.show();
@@ -473,6 +505,8 @@ void setup() {
   irremoteSetup();
   setupUsbHid();
 
+  strip.setPin(LED_PIN_CONFIG);
+  strip.updateType(LED_ORDER_CONFIG | NEO_KHZ800);
   strip.begin();
   strip.show();
   updateLED();
