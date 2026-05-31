@@ -333,12 +333,6 @@ void applyLedSettings(JsonObject led) {
         COLOR_RAW[idx] = strtoul(c.as<const char*>(), NULL, 16);
       idx++;
     }
-  } else {
-    // Legacy two-key format
-    if (led["keyboardModeColor"].is<const char*>())
-      COLOR_RAW[0] = strtoul((const char*)led["keyboardModeColor"], NULL, 16);
-    if (led["consumerModeColor"].is<const char*>())
-      COLOR_RAW[1] = strtoul((const char*)led["consumerModeColor"], NULL, 16);
   }
 
   for (uint8_t i = 0; i < MODE_COUNT; i++)
@@ -407,35 +401,6 @@ void applySlotsFromArray(uint8_t modeIndex, JsonArray slots) {
   }
 }
 
-void applyLegacyMappings(uint8_t modeIndex, JsonArray keyboard, JsonArray consumer) {
-  if (modeIndex >= MODE_COUNT) return;
-  clearModeSlots(modeIndex);
-
-  uint8_t slotIndex = 0;
-  for (JsonObject mapping : keyboard) {
-    if (slotIndex >= MAX_MAPPINGS) break;
-    if (!mapping["irCode"].is<const char*>()) continue;
-    uint16_t keyVal = 0;
-    if (!parseKeyValue(mapping["key"], &keyVal)) continue;
-
-    modeSlots[modeIndex][slotIndex].irCode = strtoul(mapping["irCode"], NULL, 16);
-    modeSlots[modeIndex][slotIndex].key = keyVal;
-    modeSlots[modeIndex][slotIndex].type = SLOT_KEYBOARD;
-    slotIndex++;
-  }
-
-  for (JsonObject mapping : consumer) {
-    if (slotIndex >= MAX_MAPPINGS) break;
-    if (!mapping["irCode"].is<const char*>()) continue;
-    uint16_t keyVal = 0;
-    if (!parseKeyValue(mapping["key"], &keyVal)) continue;
-
-    modeSlots[modeIndex][slotIndex].irCode = strtoul(mapping["irCode"], NULL, 16);
-    modeSlots[modeIndex][slotIndex].key = keyVal;
-    modeSlots[modeIndex][slotIndex].type = SLOT_CONSUMER;
-    slotIndex++;
-  }
-}
 
 void applyModeNamesFromArray(JsonArray modes) {
   uint8_t idx = 0;
@@ -462,19 +427,10 @@ void applySettingsFromJson(JsonObject doc) {
     uint8_t idx = 0;
     for (JsonObject mode : modes) {
       if (idx >= MODE_COUNT) break;
-      if (mode["slots"].is<JsonArray>()) {
+      if (mode["slots"].is<JsonArray>())
         applySlotsFromArray(idx, mode["slots"].as<JsonArray>());
-      } else if (mode["keyboard"].is<JsonArray>() || mode["consumer"].is<JsonArray>()) {
-        JsonArray keyboard = mode["keyboard"].is<JsonArray>() ? mode["keyboard"].as<JsonArray>() : JsonArray();
-        JsonArray consumer = mode["consumer"].is<JsonArray>() ? mode["consumer"].as<JsonArray>() : JsonArray();
-        applyLegacyMappings(idx, keyboard, consumer);
-      }
       idx++;
     }
-  } else if (doc["keyboard"].is<JsonArray>() || doc["consumer"].is<JsonArray>()) {
-    JsonArray keyboard = doc["keyboard"].is<JsonArray>() ? doc["keyboard"].as<JsonArray>() : JsonArray();
-    JsonArray consumer = doc["consumer"].is<JsonArray>() ? doc["consumer"].as<JsonArray>() : JsonArray();
-    applyLegacyMappings(0, keyboard, consumer);
   }
 }
 
@@ -661,24 +617,11 @@ void loadMappings() {
     uint8_t idx = 0;
     for (JsonObject mode : modes) {
       if (idx >= MODE_COUNT) break;
-      if (mode["slots"].is<JsonArray>()) {
+      if (mode["slots"].is<JsonArray>())
         applySlotsFromArray(idx, mode["slots"].as<JsonArray>());
-      } else if (mode["keyboard"].is<JsonArray>() || mode["consumer"].is<JsonArray>()) {
-        JsonArray keyboard = mode["keyboard"].is<JsonArray>() ? mode["keyboard"].as<JsonArray>() : JsonArray();
-        JsonArray consumer = mode["consumer"].is<JsonArray>() ? mode["consumer"].as<JsonArray>() : JsonArray();
-        applyLegacyMappings(idx, keyboard, consumer);
-      }
       idx++;
     }
     Serial.println("Loaded mode mappings");
-    return;
-  }
-
-  if (doc["keyboard"].is<JsonArray>() || doc["consumer"].is<JsonArray>()) {
-    JsonArray keyboard = doc["keyboard"].is<JsonArray>() ? doc["keyboard"].as<JsonArray>() : JsonArray();
-    JsonArray consumer = doc["consumer"].is<JsonArray>() ? doc["consumer"].as<JsonArray>() : JsonArray();
-    applyLegacyMappings(0, keyboard, consumer);
-    Serial.println("Loaded legacy mappings into Mode 1");
   }
 }
 

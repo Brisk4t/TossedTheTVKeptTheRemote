@@ -479,37 +479,15 @@ function defaultSettings() {
 function ensureSettings() {
   if (!settings) settings = defaultSettings();
 
-  // Migrate legacy mode format
-  if (!Array.isArray(settings.modes)) {
-    const lk = settings.keyboard || [];
-    const lc = settings.consumer || [];
-    settings.modes = [
-      { name: "Layer 1", slots: [] },
-      { name: "Layer 2", slots: [] },
-    ];
-    lk.forEach((e) => settings.modes[0].slots.push({ irCode: e.irCode, type: "keyboard", key: e.key }));
-    lc.forEach((e) => settings.modes[0].slots.push({ irCode: e.irCode, type: "consumer", key: e.key }));
-    delete settings.keyboard;
-    delete settings.consumer;
-  }
-
   while (settings.modes.length < 2) {
     settings.modes.push({ name: `Layer ${settings.modes.length + 1}`, slots: [] });
   }
   settings.modes.forEach((mode) => {
     if (!Array.isArray(mode.slots)) mode.slots = [];
-    // Remove empty padding — modes use irCode lookup, not index
     mode.slots = mode.slots.filter(s => s && s.irCode);
   });
 
   if (!settings.led) settings.led = defaultSettings().led;
-  if (!Array.isArray(settings.led.modeColors)) {
-    const km = settings.led.keyboardModeColor || DEFAULT_MODE_COLORS[0];
-    const cm = settings.led.consumerModeColor || DEFAULT_MODE_COLORS[1];
-    settings.led.modeColors = [km, cm];
-    delete settings.led.keyboardModeColor;
-    delete settings.led.consumerModeColor;
-  }
   while (settings.led.modeColors.length < settings.modes.length) {
     settings.led.modeColors.push(DEFAULT_MODE_COLORS[settings.led.modeColors.length] || "0x000000");
   }
@@ -517,7 +495,6 @@ function ensureSettings() {
   if (!settings.ir) settings.ir = defaultSettings().ir;
   settings.ir.modeCount = settings.modes.length;
 
-  // Ensure layouts
   if (!Array.isArray(settings.layouts) || settings.layouts.length === 0) {
     settings.layouts = defaultSettings().layouts;
   }
