@@ -467,8 +467,8 @@ function defaultSettings() {
       brightnessPercent: 10,
     },
     modes: [
-      { name: "Mode 1", slots: [] },
-      { name: "Mode 2", slots: [] },
+      { name: "Layer 1", slots: [] },
+      { name: "Layer 2", slots: [] },
     ],
     layouts: [
       { name: "Default Layout", buttons: [] },
@@ -484,8 +484,8 @@ function ensureSettings() {
     const lk = settings.keyboard || [];
     const lc = settings.consumer || [];
     settings.modes = [
-      { name: "Mode 1", slots: [] },
-      { name: "Mode 2", slots: [] },
+      { name: "Layer 1", slots: [] },
+      { name: "Layer 2", slots: [] },
     ];
     lk.forEach((e) => settings.modes[0].slots.push({ irCode: e.irCode, type: "keyboard", key: e.key }));
     lc.forEach((e) => settings.modes[0].slots.push({ irCode: e.irCode, type: "consumer", key: e.key }));
@@ -494,7 +494,7 @@ function ensureSettings() {
   }
 
   while (settings.modes.length < 2) {
-    settings.modes.push({ name: `Mode ${settings.modes.length + 1}`, slots: [] });
+    settings.modes.push({ name: `Layer ${settings.modes.length + 1}`, slots: [] });
   }
   settings.modes.forEach((mode) => {
     if (!Array.isArray(mode.slots)) mode.slots = [];
@@ -577,7 +577,7 @@ function renderTabs() {
     dot.className = "mode-color-dot";
     dot.style.background = dotColor;
     btn.appendChild(dot);
-    btn.appendChild(document.createTextNode(mode.name || `Mode ${i + 1}`));
+    btn.appendChild(document.createTextNode(mode.name || `Layer ${i + 1}`));
 
     btn.addEventListener("click", () => {
       if (i === currentModeIndex) startRenameMode(i);
@@ -599,7 +599,7 @@ function startRenameMode(index) {
   const btn = [...tabsEl.querySelectorAll(".tab:not(.tab-add)")][index];
   if (!btn || btn.querySelector("input")) return;
 
-  const prev = settings.modes[index].name || `Mode ${index + 1}`;
+  const prev = settings.modes[index].name || `Layer ${index + 1}`;
   const inp = document.createElement("input");
   inp.type = "text";
   inp.className = "tab-rename-input";
@@ -634,7 +634,7 @@ function switchMode(index) {
 function addMode() {
   ensureSettings();
   if (settings.modes.length >= MAX_MODES) return;
-  settings.modes.push({ name: `Mode ${settings.modes.length + 1}`, slots: [] });
+  settings.modes.push({ name: `Layer ${settings.modes.length + 1}`, slots: [] });
   settings.led.modeColors.push(DEFAULT_MODE_COLORS[settings.modes.length - 1] || "0x000000");
   settings.ir.modeCount = settings.modes.length;
   syncEditor();

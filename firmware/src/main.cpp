@@ -25,7 +25,7 @@ uint8_t currentMode = 0;
 
 // Mode names (persisted in settings.json, editable from UI)
 char modeNames[MODE_COUNT][20] = {
-  "Mode 1", "Mode 2", "Mode 3", "Mode 4", "Mode 5"
+  "Layer 1", "Layer 2", "Layer 3", "Layer 4", "Layer 5"
 };
 
 // Layout data stored as raw JSON for pass-through (firmware does not process this)
