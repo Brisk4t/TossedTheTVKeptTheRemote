@@ -8,7 +8,7 @@
 	<img src="https://img.shields.io/badge/PlatformIO-%23222.svg?style=for-the-badge&logo=platformio&logoColor=%23f5822a" alt="PlatformIO"/>
 </div>
 
-### There are way too many old TV remotes in the garbage dump.... And way too many overpriced "powerpoint clickers" on amazon. Its quite appalling. 
+### There are way too many old TV remotes in the garbage dump.... And way too many overpriced "powerpoint clickers" on Amazon. Its quite appalling. 
 
 
 All you need is $5, an RP2040 and 5 minutes to turn that old, suspiciously sticky T.V. remote into a fully functional _USB Keyboard / Clicker / Thingy_ that you can reprogram on the fly like your favorite **hackerman keyboard**.  
@@ -30,11 +30,7 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 
 | RP2040 Pin | Component | Component Pin |
 |------------|-----------|---------------|
-| 3.3V | IR receiver | VCC |
-| GND | IR receiver | GND |
 | GPIO 28 | IR receiver | OUT |
-| 3.3V | NeoPixel | VCC |
-| GND | NeoPixel | GND |
 | GPIO 16 | NeoPixel | DIN |
 
 
@@ -49,6 +45,42 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 3. Copy the ```*.uf2``` to the newly discovered USB-Drive
 4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
 5. Connect and start adding buttons to the layout.
+
+
+# Config UI
+
+![Customize](/images/customize.png)
+
+The config UI is deployed to GitHub Pages at **https://brisk4t.github.io/TossedTheTVKeptTheRemote/**. You can also open `web/index.html` locally in any Chromium-based browser (Chrome, Edge) — Web Serial is required.
+
+1. Click **Click to Connect** and select the device's serial port.
+2. Settings load automatically from the device.
+3. Use the **Layers** tabs to switch between mapping contexts.
+4. Select a button in the grid, then assign a key from the dropdown or compose a custom combo.
+5. Click **Apply** to write changes back to the device.
+
+## Layout editing
+
+![Layouts](/images/layouts.png)
+
+Each layer can have one or more **layouts** — named grids of buttons. Enter edit mode with **Edit Layout** to drag buttons around, add/remove slots, or use **Auto-Add** to rapidly bind IR codes to keys by pressing remote buttons followed by the target keyboard key.
+
+### Key types
+
+| Type | Description |
+|------|-------------|
+| Preset | Single keyboard or consumer HID key from the dropdown |
+| Custom | Compose a sequence of keys and modifiers using the combo editor |
+| Mode Switch | Advance to the next layer |
+
+## Combos:
+
+![Combos](/images/combos.png)
+
+- Modifier chips (Ctrl / Shift / Alt / Win) toggled before capturing a key
+- Multiple steps chained with `→` (e.g. `Ctrl+A → Delete → Tab`)
+- Text steps that type a literal string character by character
+
 
 # Repository layout
 
@@ -68,8 +100,6 @@ web/
 ```
 
 
-
-
 ## Build from source & flash
 
 To build from source, requires [PlatformIO](https://platformio.org/).
@@ -82,36 +112,6 @@ pio run -t uploadfs            # build and upload data partition (settings.json)
 
 For UF2 boards: `pio run -e pico` and `pio run -e pico -t buildfs` produce `firmware.uf2` and `littlefs.uf2` inside `.pio/build/pico/`. Concatenate them (`cat firmware.uf2 littlefs.uf2 > firmware_with_fs.uf2`) and drag the combined file onto the board's mass-storage drive.
 
----
-
-## Config UI
-
-The config UI is deployed to GitHub Pages at **https://brisk4t.github.io/TossedTheTVKeptTheRemote/**. You can also open `web/index.html` locally in any Chromium-based browser (Chrome, Edge) — Web Serial is required.
-
-1. Click **Click to Connect** and select the device's serial port.
-2. Settings load automatically from the device.
-3. Use the **Layers** tabs to switch between mapping contexts.
-4. Select a button in the grid, then assign a key from the dropdown or compose a custom combo.
-5. Click **Apply** to write changes back to the device.
-
-### Layout editing
-
-Each layer can have one or more **layouts** — named grids of buttons. Enter edit mode with **Edit Layout** to drag buttons around, add/remove slots, or use **Auto-Add** to rapidly bind IR codes to keys by pressing remote buttons followed by the target keyboard key.
-
-### Key types
-
-| Type | Description |
-|------|-------------|
-| Preset | Single keyboard or consumer HID key from the dropdown |
-| Custom | Compose a sequence of keys and modifiers using the combo editor |
-| Mode Switch | Advance to the next layer |
-
-**Custom combos** support:
-- Modifier chips (Ctrl / Shift / Alt / Win) toggled before capturing a key
-- Multiple steps chained with `→` (e.g. `Ctrl+A → Delete → Tab`)
-- Text steps that type a literal string character by character
-
----
 
 ## Settings format
 
@@ -178,8 +178,6 @@ Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads an
 | Max steps per combo | 8 |
 | Max text length per step | 48 characters |
 
----
-
 
 ## Troubleshooting
 
@@ -198,3 +196,4 @@ Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads an
 - **[Adafruit NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)** — WS2812 driver library by Adafruit
 - **[arduino-pico](https://github.com/earlephilhower/arduino-pico)** — RP2040 Arduino core (TinyUSB, LittleFS) by Earle F. Philhower III
 - **[platform-raspberrypi](https://github.com/maxgerhardt/platform-raspberrypi)** — PlatformIO platform for RP2040 by Maxim Gerhardt
+- **[Adafruit pIRkey](https://www.adafruit.com/product/3364)** — They tried but alas, not everyone wants to learn micropython.
