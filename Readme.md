@@ -60,11 +60,11 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 > **Web Serial is Chromium only** must use a Chromium-based browser (Chrome / Edge / Brave). Firefox does not support Web Serial.
 
 > [!TIP] 
-> Pre-built `.uf2` images are available on the [Releases](../../releases) page — download the latest and drag it onto the board's USB mass-storage drive.
+> Pre-built `firmware_with_fs.uf2` images are available on the [Releases](../../releases) page — download the latest and drag it onto the board's USB mass-storage drive.
 
-1. Download the most recently leased ```*.uf2``` file.
+1. Download the most recently leased ```firmware_with_fs.uf2``` file.
 2. Hold the ```BOOTSEL``` / ```BOOT``` button on the RP20xx board and plug it in to your computer / press reset (if already plugged in)
-3. Copy the ```*.uf2``` to the newly discovered USB-Drive
+3. Copy the ```firmware_with_fs.uf2``` to the newly discovered USB-Drive
 4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
 5. Connect and start adding buttons to the layout.
 6. *If you used non-default wiring you can also change the pins used here. 
