@@ -36,6 +36,7 @@ body {
 
 /* ── Hero ────────────────────────────────────────────────── */
 .hero {
+  font-family: "Silkscreen", sans-serif;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -49,6 +50,7 @@ h1 {
 }
 
 .lede {
+  font-family: "Space Grotesk", sans-serif;
   color: var(--muted);
   margin-top: 6px;
 }

@@ -3,25 +3,27 @@ const logEl           = document.getElementById("log");
 const logToggleBtn    = document.getElementById("logToggle");
 const editor          = document.getElementById("jsonEditor");
 const remoteGrid      = document.getElementById("remoteGrid");
+const modeTabs        = document.getElementById("modeTabs");
+const layoutTabs      = document.getElementById("layoutTabs");
 const labelInput      = document.getElementById("labelInput");
 const irInput         = document.getElementById("irInput");
-const keyPresetSelect  = document.getElementById("keyPresetSelect");
-const comboEditor      = document.getElementById("comboEditor");
-const comboStepList    = document.getElementById("comboStepList");
-const comboCaptureBtn  = document.getElementById("comboCaptureBtn");
-const comboAddTextBtn  = document.getElementById("comboAddTextBtn");
-const comboTextInput   = document.getElementById("comboTextInput");
+const keyPresetSelect = document.getElementById("keyPresetSelect");
+const comboEditor     = document.getElementById("comboEditor");
+const comboStepList   = document.getElementById("comboStepList");
+const comboCaptureBtn = document.getElementById("comboCaptureBtn");
+const comboAddTextBtn = document.getElementById("comboAddTextBtn");
+const comboTextInput  = document.getElementById("comboTextInput");
 const learnBtn        = document.getElementById("learnBtn");
 const clearBtn        = document.getElementById("clearBtn");
 const jsonPanel       = document.getElementById("jsonPanel");
 const toggleJsonBtn   = document.getElementById("toggleJsonBtn");
-const modeColorPicker      = document.getElementById("modeColorPicker");
-const modeColorSwatch      = document.getElementById("modeColorSwatch");
-const hueDropdown          = document.getElementById("hueDropdown");
-const huePickerWrap        = document.getElementById("huePickerWrap");
-const ledBrightnessSlider  = document.getElementById("ledBrightnessSlider");
-const ledBrightnessValue   = document.getElementById("ledBrightnessValue");
-const addLayoutBtn         = document.getElementById("addLayoutBtn");
+const modeColorPicker = document.getElementById("modeColorPicker");
+const modeColorSwatch = document.getElementById("modeColorSwatch");
+const hueDropdown     = document.getElementById("hueDropdown");
+const huePickerWrap   = document.getElementById("huePickerWrap");
+const ledBrightnessSlider = document.getElementById("ledBrightnessSlider");
+const ledBrightnessValue  = document.getElementById("ledBrightnessValue");
+const addLayoutBtn    = document.getElementById("addLayoutBtn");
 const editLayoutBtn   = document.getElementById("editLayoutBtn");
 const layoutEditBar   = document.getElementById("layoutEditBar");
 const addSlotBtn      = document.getElementById("addSlotBtn");
@@ -42,7 +44,6 @@ const MAX_MAPPINGS = 20;
 const MAX_MODES    = 5;
 const LABELS_KEY   = "ir-hid-labels";
 
-// Vivid full-brightness hues — firmware scales them down with brightnessPercent
 const DEFAULT_MODE_COLORS = [
   "0xFF0040", "0x0080FF", "0x00FF80", "0xFF8000", "0xFF00FF",
 ];
@@ -80,25 +81,23 @@ const KEY_TO_HID = {
 
 // ── State ─────────────────────────────────────────────────────
 let port, reader, writer;
-let readLoopActive      = false;
-let currentModeIndex    = 0;
-let currentLayoutIndex  = 0;
-let selectedBtnIdx      = null;   // index into getCurrentLayout().buttons
-let learnArmed          = false;
-let layoutEditMode      = false;
-let draggedBtnIdx       = null;   // index in buttons array being dragged
+let readLoopActive     = false;
+let currentModeIndex   = 0;
+let currentLayoutIndex = 0;
+let selectedBtnIdx     = null;
+let learnArmed         = false;
+let layoutEditMode     = false;
+let draggedBtnIdx      = null;
 
-// Labels are keyed by irCode → label string, stored in localStorage
-let labels = {};
-
-let settings = null;
+let labels           = {};
+let settings         = null;
 let savedSettingsJSON = null;
-let autoAddActive = false;
-let autoAddStep   = null;   // "ir" | "hid"
-let autoAddIrCode = null;
+let autoAddActive    = false;
+let autoAddStep      = null;   // "ir" | "hid"
+let autoAddIrCode    = null;
 let captureComboActive = false;
-let comboSteps  = [];  // [{ type, key, mods? }]
-let pendingMods = 0;   // bitmask from UI modifier toggles
+let comboSteps       = [];
+let pendingMods      = 0;
 
 // ── Label helpers ─────────────────────────────────────────────
 function getLabel(irCode) {
@@ -115,10 +114,13 @@ function loadLabels() {
 function settingsColorToCss(hex) {
   return "#" + hex.replace(/^0x/i, "").slice(-6).padStart(6, "0");
 }
+function cssColorToSettings(css) {
+  return "0x" + css.replace("#", "").toUpperCase();
+}
 
 function hueToHex(hue) {
   const h = ((hue % 360) + 360) % 360 / 360;
-  const q = 1, p = 0; // HSL(h, 100%, 50%)
+  const q = 1, p = 0;
   const ch = (t) => {
     if (t < 0) t += 1; if (t > 1) t -= 1;
     if (t < 1/6) return p + (q - p) * 6 * t;
@@ -129,7 +131,7 @@ function hueToHex(hue) {
   const r = Math.round(ch(h + 1/3) * 255);
   const g = Math.round(ch(h)       * 255);
   const b = Math.round(ch(h - 1/3) * 255);
-  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  return `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b.toString(16).padStart(2,"0")}`;
 }
 
 function hexToHue(css) {
@@ -144,26 +146,38 @@ function hexToHue(css) {
   else                h = (r - g) / d + 4;
   return Math.round(h * 60) % 360;
 }
-function cssColorToSettings(css) {
-  return "0x" + css.replace("#", "").toUpperCase();
-}
-function updateModeColorPicker() {
-  const colors = settings?.led?.modeColors;
-  const raw = (colors && colors[currentModeIndex])
-    ?? DEFAULT_MODE_COLORS[currentModeIndex] ?? "0xFF0040";
-  const hue = hexToHue(settingsColorToCss(raw));
-  const hueColor = hueToHex(hue);
-  modeColorPicker.value = hue;
+
+function applyHueColor(hueColor) {
   modeColorPicker.style.setProperty("--thumb-color", hueColor);
   modeColorSwatch.style.background = hueColor;
   ledBrightnessSlider.style.accentColor = hueColor;
+}
 
+function updateModeColorPicker() {
+  const colors = settings?.led?.modeColors;
+  const raw    = (colors && colors[currentModeIndex]) ?? DEFAULT_MODE_COLORS[currentModeIndex] ?? "0xFF0040";
+  const hue    = hexToHue(settingsColorToCss(raw));
+  modeColorPicker.value = hue;
+  applyHueColor(hueToHex(hue));
   const pct = settings?.led?.brightnessPercent ?? 10;
-  ledBrightnessSlider.value    = pct;
+  ledBrightnessSlider.value      = pct;
   ledBrightnessValue.textContent = `${pct}%`;
 }
 
-// ── Key helpers ───────────────────────────────────────────────
+// ── Key / HID helpers ─────────────────────────────────────────
+function normalizeHex(hex) {
+  return hex.replace(/^0x0*([0-9a-fA-F])/i, "0x$1");
+}
+
+function parsePresetOption(val) {
+  const [t, k, m] = val.split(":");
+  return {
+    type: t.toUpperCase(),
+    key:  k ? normalizeHex(k).toUpperCase() : "",
+    mods: m ? parseInt(m, 16) : 0,
+  };
+}
+
 function keyEventToHid(e) {
   let base = KEY_TO_HID[e.key];
   if (!base) {
@@ -180,6 +194,21 @@ function keyEventToHid(e) {
                   (e.altKey  ? 0x04 : 0) | (e.metaKey  ? 0x08 : 0);
   return modsNum ? { ...base, mods: "0x" + modsNum.toString(16).toUpperCase() } : { ...base };
 }
+
+function findPreset(key, type, mods) {
+  if (type === "mode_switch") return "mode_switch";
+  if (!key) return "custom";
+  const modsNum  = mods ? parseInt(mods, 16) : 0;
+  const typeNorm = (type || "keyboard").toUpperCase();
+  const keyNorm  = normalizeHex(key).toUpperCase();
+  for (const opt of keyPresetSelect.options) {
+    if (opt.value === "custom" || opt.value === "mode_switch") continue;
+    const o = parsePresetOption(opt.value);
+    if (o.type === typeNorm && o.key === keyNorm && o.mods === modsNum) return opt.value;
+  }
+  return "custom";
+}
+
 function getHidLabel(type, key, mods) {
   if (!key) return null;
   const modsNum  = mods ? parseInt(mods, 16) : 0;
@@ -187,14 +216,12 @@ function getHidLabel(type, key, mods) {
   const keyNorm  = normalizeHex(key).toUpperCase();
   for (const opt of keyPresetSelect.options) {
     if (opt.value === "custom" || opt.value === "mode_switch") continue;
-    const parts   = opt.value.split(":");
-    const optType = parts[0].toUpperCase();
-    const optKey  = parts[1] ? normalizeHex(parts[1]).toUpperCase() : "";
-    const optMods = parts[2] ? parseInt(parts[2], 16) : 0;
-    if (optType === typeNorm && optKey === keyNorm && optMods === modsNum) return opt.textContent;
+    const o = parsePresetOption(opt.value);
+    if (o.type === typeNorm && o.key === keyNorm && o.mods === modsNum) return opt.textContent;
   }
   return null;
 }
+
 function getHidKeyLabel(type, key, mods) {
   const label = getHidLabel(type, key, mods);
   if (label) return label;
@@ -206,6 +233,12 @@ function getHidKeyLabel(type, key, mods) {
   }
   return key || "?";
 }
+
+function applyPresetUi(preset) {
+  comboEditor.style.display = preset === "custom" ? "flex" : "none";
+}
+
+// ── Slot data helpers ─────────────────────────────────────────
 function slotDataFromSlot(slot) {
   if (slot.type === "combo") return { type: "combo", steps: (slot.steps || []).map(s => ({ ...s })) };
   if (slot.type === "text")  return { type: "text",  value: slot.value || "" };
@@ -213,6 +246,7 @@ function slotDataFromSlot(slot) {
   if (slot.mods) d.mods = slot.mods;
   return d;
 }
+
 function comboStepsToSlotData() {
   if (comboSteps.length === 0) return { type: "keyboard", key: "" };
   if (comboSteps.length === 1) {
@@ -222,6 +256,8 @@ function comboStepsToSlotData() {
   }
   return { type: "combo", steps: comboSteps.map(s => ({ ...s })) };
 }
+
+// ── Combo editor ──────────────────────────────────────────────
 function renderComboSteps() {
   comboStepList.innerHTML = "";
   comboSteps.forEach((step, i) => {
@@ -264,43 +300,19 @@ function renderComboSteps() {
     comboStepList.appendChild(chip);
   });
 }
+
 function startComboCapture() {
   captureComboActive = true;
   comboCaptureBtn.textContent = "Press a key…";
   comboCaptureBtn.classList.add("capturing");
 }
+
 function stopComboCapture() {
   captureComboActive = false;
   pendingMods = 0;
   document.querySelectorAll(".combo-mod-toggle").forEach(b => b.classList.remove("active"));
   comboCaptureBtn.textContent = "+ Add Key";
   comboCaptureBtn.classList.remove("capturing");
-}
-
-// ── Preset helpers ────────────────────────────────────────────
-function normalizeHex(hex) {
-  // "0x00E9" → "0xE9", "0x04" → "0x4", "0x0" → "0x0"
-  return hex.replace(/^0x0*([0-9a-fA-F])/i, "0x$1");
-}
-
-function findPreset(key, type, mods) {
-  if (type === "mode_switch") return "mode_switch";
-  if (!key) return "custom";
-  const modsNum  = mods ? parseInt(mods, 16) : 0;
-  const typeNorm = (type || "keyboard").toUpperCase();
-  const keyNorm  = normalizeHex(key).toUpperCase();
-  for (const opt of keyPresetSelect.options) {
-    if (opt.value === "custom" || opt.value === "mode_switch") continue;
-    const parts   = opt.value.split(":");
-    const optType = parts[0].toUpperCase();
-    const optKey  = parts[1] ? normalizeHex(parts[1]).toUpperCase() : "";
-    const optMods = parts[2] ? parseInt(parts[2], 16) : 0;
-    if (optType === typeNorm && optKey === keyNorm && optMods === modsNum) return opt.value;
-  }
-  return "custom";
-}
-function applyPresetUi(preset) {
-  comboEditor.style.display = preset === "custom" ? "flex" : "none";
 }
 
 // ── Log ───────────────────────────────────────────────────────
@@ -310,6 +322,7 @@ function logLine(text) {
   logEl.appendChild(line);
   logEl.scrollTop = logEl.scrollHeight;
 }
+
 logToggleBtn.addEventListener("click", () => {
   const v = logEl.classList.toggle("visible");
   logToggleBtn.querySelector(".chevron").innerHTML = v ? "&#9650;" : "&#9660;";
@@ -373,15 +386,14 @@ function handleResponse(line) {
   if (payload.data) {
     settings = payload.data;
     ensureSettings();
-    editor.value = JSON.stringify(settings, null, 2);
     currentLayoutIndex = Math.min(currentLayoutIndex, settings.layouts.length - 1);
+    savedSettingsJSON = JSON.stringify(settings);
+    syncEditor();
     renderTabs();
     renderLayoutTabs();
     renderGrid();
     if (selectedBtnIdx !== null) selectButton(selectedBtnIdx);
     updateModeColorPicker();
-    savedSettingsJSON = JSON.stringify(settings);
-    checkApplyBtn();
     return;
   }
 
@@ -399,7 +411,6 @@ function handleResponse(line) {
     if (btn) {
       const oldCode = btn.irCode;
       btn.irCode = payload.code;
-      // Transfer action from old code to new code in active mode
       if (oldCode && oldCode !== payload.code) {
         const oldSlot = getSlotByIrCode(currentModeIndex, oldCode);
         if (oldSlot.type) {
@@ -418,26 +429,18 @@ function handleResponse(line) {
 
 async function sendCommand(obj) {
   if (!writer) return;
-  const encoder = new TextEncoder();
   const message = JSON.stringify(obj) + "\n";
   logLine(`=> ${message.trim()}`);
-  await writer.write(encoder.encode(message));
+  await writer.write(new TextEncoder().encode(message));
 }
 
 async function getSettings() { await sendCommand({ op: "get" }); }
 
 async function applySettings() {
-  try {
-    const parsed = JSON.parse(editor.value);
-    settings = parsed;
-    ensureSettings();
-  } catch {
-    ensureSettings();
-    logLine("JSON parse error — sending current settings.");
-  }
-  syncEditor();
+  try { settings = JSON.parse(editor.value); } catch { logLine("JSON parse error — sending current settings."); }
+  ensureSettings();
   savedSettingsJSON = JSON.stringify(settings);
-  checkApplyBtn();
+  syncEditor();
   await sendCommand({ op: "set", data: settings });
 }
 
@@ -466,49 +469,37 @@ function defaultSettings() {
       modeColors: ["0xFF0040", "0x0080FF"],
       brightnessPercent: 10,
     },
-    modes: [
-      { name: "Layer 1", slots: [] },
-      { name: "Layer 2", slots: [] },
-    ],
-    layouts: [
-      { name: "Default Layout", buttons: [] },
-    ],
+    modes:   [{ name: "Layer 1", slots: [] }, { name: "Layer 2", slots: [] }],
+    layouts: [{ name: "Default Layout", buttons: [] }],
   };
 }
 
 function ensureSettings() {
   if (!settings) settings = defaultSettings();
 
-  while (settings.modes.length < 2) {
+  while (settings.modes.length < 2)
     settings.modes.push({ name: `Layer ${settings.modes.length + 1}`, slots: [] });
-  }
-  settings.modes.forEach((mode) => {
+  settings.modes.forEach(mode => {
     if (!Array.isArray(mode.slots)) mode.slots = [];
     mode.slots = mode.slots.filter(s => s && s.irCode);
   });
 
   if (!settings.led) settings.led = defaultSettings().led;
-  while (settings.led.modeColors.length < settings.modes.length) {
+  while (settings.led.modeColors.length < settings.modes.length)
     settings.led.modeColors.push(DEFAULT_MODE_COLORS[settings.led.modeColors.length] || "0x000000");
-  }
 
   if (!settings.ir) settings.ir = defaultSettings().ir;
   settings.ir.modeCount = settings.modes.length;
 
-  if (!Array.isArray(settings.layouts) || settings.layouts.length === 0) {
+  if (!Array.isArray(settings.layouts) || settings.layouts.length === 0)
     settings.layouts = defaultSettings().layouts;
-  }
-  settings.layouts.forEach((layout) => {
+  settings.layouts.forEach(layout => {
     if (!Array.isArray(layout.buttons)) layout.buttons = [];
-    layout.buttons.forEach((btn) => {
-      if (btn.x === undefined) btn.x = 0;
-      if (btn.y === undefined) btn.y = 0;
-      if (btn.irCode === undefined) btn.irCode = "";
-    });
+    layout.buttons.forEach(btn => { btn.x ??= 0; btn.y ??= 0; btn.irCode ??= ""; });
   });
 }
 
-// ── Mode slot helpers (keyed by irCode) ───────────────────────
+// ── Mode slot helpers ─────────────────────────────────────────
 function getSlotByIrCode(modeIndex, irCode) {
   if (!irCode) return { irCode: "", type: "keyboard", key: "" };
   const slots = settings?.modes[modeIndex]?.slots || [];
@@ -532,71 +523,68 @@ function removeSlotByIrCode(modeIndex, irCode) {
   settings.modes[modeIndex].slots = settings.modes[modeIndex].slots.filter(s => s.irCode !== irCode);
 }
 
-// ── Layout helpers ────────────────────────────────────────────
 function getCurrentLayout() {
   ensureSettings();
   return settings.layouts[currentLayoutIndex] ?? settings.layouts[0];
 }
 
+function findFreePosition(layout) {
+  const occupied = new Set(layout.buttons.map(b => `${b.x},${b.y}`));
+  const maxX = layout.buttons.length > 0 ? Math.max(...layout.buttons.map(b => b.x)) + 1 : 5;
+  let x = 0, y = 0;
+  while (occupied.has(`${x},${y}`)) { x++; if (x >= maxX) { x = 0; y++; } }
+  return { x, y };
+}
+
 // ── Mode tabs ─────────────────────────────────────────────────
 function renderTabs() {
-  const tabsEl = document.getElementById("modeTabs");
-  tabsEl.innerHTML = "";
+  modeTabs.innerHTML = "";
   (settings?.modes || []).forEach((mode, i) => {
     const btn = document.createElement("button");
     btn.className = "tab" + (i === currentModeIndex ? " active" : "");
     btn.title = "Click active tab to rename";
-
-    const dotColor = settingsColorToCss(
-      settings?.led?.modeColors?.[i] ?? DEFAULT_MODE_COLORS[i] ?? "0xFF0040"
-    );
+    const dotColor = settingsColorToCss(settings?.led?.modeColors?.[i] ?? DEFAULT_MODE_COLORS[i] ?? "0xFF0040");
     const dot = document.createElement("span");
     dot.className = "mode-color-dot";
     dot.style.background = dotColor;
     btn.appendChild(dot);
     btn.appendChild(document.createTextNode(mode.name || `Layer ${i + 1}`));
-
-    btn.addEventListener("click", () => {
-      if (i === currentModeIndex) startRenameMode(i);
-      else switchMode(i);
-    });
-    tabsEl.appendChild(btn);
+    btn.addEventListener("click", () => i === currentModeIndex ? startRenameMode(i) : switchMode(i));
+    modeTabs.appendChild(btn);
   });
   const addBtn = document.createElement("button");
   addBtn.className = "tab tab-add";
   addBtn.textContent = "+";
-  addBtn.title = "Add Mode";
+  addBtn.title = "Add Layer";
   addBtn.disabled = (settings?.modes?.length ?? 0) >= MAX_MODES;
   addBtn.addEventListener("click", addMode);
-  tabsEl.appendChild(addBtn);
+  modeTabs.appendChild(addBtn);
 }
 
-function startRenameMode(index) {
-  const tabsEl = document.getElementById("modeTabs");
-  const btn = [...tabsEl.querySelectorAll(".tab:not(.tab-add)")][index];
+function startRenameTab(btn, defaultName, onCommit) {
   if (!btn || btn.querySelector("input")) return;
-
-  const prev = settings.modes[index].name || `Layer ${index + 1}`;
   const inp = document.createElement("input");
   inp.type = "text";
   inp.className = "tab-rename-input";
-  inp.value = prev;
+  inp.value = defaultName;
   btn.textContent = "";
   btn.appendChild(inp);
   inp.focus();
   inp.select();
+  inp.addEventListener("blur", () => onCommit(inp.value.trim() || defaultName));
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter")  inp.blur();
+    if (e.key === "Escape") { inp.value = defaultName; inp.blur(); }
+    e.stopPropagation();
+  });
+}
 
-  const commit = () => {
-    const name = inp.value.trim() || prev;
+function startRenameMode(index) {
+  const btn = [...modeTabs.querySelectorAll(".tab:not(.tab-add)")][index];
+  startRenameTab(btn, settings.modes[index].name || `Layer ${index + 1}`, name => {
     settings.modes[index].name = name;
     syncEditor();
     renderTabs();
-  };
-  inp.addEventListener("blur",    commit);
-  inp.addEventListener("keydown", (e) => {
-    if (e.key === "Enter")  { inp.blur(); }
-    if (e.key === "Escape") { inp.value = prev; inp.blur(); }
-    e.stopPropagation();
   });
 }
 
@@ -620,50 +608,27 @@ function addMode() {
 
 // ── Layout tabs ───────────────────────────────────────────────
 function renderLayoutTabs() {
-  const tabsEl = document.getElementById("layoutTabs");
-  tabsEl.innerHTML = "";
+  layoutTabs.innerHTML = "";
   (settings?.layouts || []).forEach((layout, i) => {
-
     const btn = document.createElement("button");
     btn.className = "layout-tab" + (i === currentLayoutIndex ? " active" : "");
     btn.textContent = layout.name || `Layout ${i + 1}`;
-    btn.title = layoutEditMode && i === currentLayoutIndex
-      ? "Click to rename" : "";
+    btn.title = (layoutEditMode && i === currentLayoutIndex) ? "Click to rename" : "";
     btn.addEventListener("click", () => {
       if (layoutEditMode && i === currentLayoutIndex) startRenameLayout(i);
       else switchLayout(i);
     });
-    tabsEl.appendChild(btn);
+    layoutTabs.appendChild(btn);
   });
-  tabsEl.appendChild(addLayoutBtn);
+  layoutTabs.appendChild(addLayoutBtn);
 }
 
 function startRenameLayout(index) {
-  const tabsEl = document.getElementById("layoutTabs");
-  const btn = [...tabsEl.querySelectorAll(".layout-tab")][index];
-  if (!btn || btn.querySelector("input")) return;
-
-  const prev = settings.layouts[index]?.name || `Layout ${index + 1}`;
-  const inp = document.createElement("input");
-  inp.type = "text";
-  inp.className = "tab-rename-input";
-  inp.value = prev;
-  btn.textContent = "";
-  btn.appendChild(inp);
-  inp.focus();
-  inp.select();
-
-  const commit = () => {
-    const name = inp.value.trim() || prev;
+  const btn = [...layoutTabs.querySelectorAll(".layout-tab")][index];
+  startRenameTab(btn, settings.layouts[index]?.name || `Layout ${index + 1}`, name => {
     settings.layouts[index].name = name;
     syncEditor();
     renderLayoutTabs();
-  };
-  inp.addEventListener("blur",    commit);
-  inp.addEventListener("keydown", (e) => {
-    if (e.key === "Enter")  inp.blur();
-    if (e.key === "Escape") { inp.value = prev; inp.blur(); }
-    e.stopPropagation();
   });
 }
 
@@ -715,9 +680,8 @@ function renderGrid() {
   buttons.forEach((btn, idx) => {
     const slot      = getSlotByIrCode(currentModeIndex, btn.irCode);
     const hasAction = slot.type && slot.type !== "";
-    const isSelected = idx === selectedBtnIdx;
-    const button = document.createElement("button");
-    button.className = "slot" + (isSelected ? " active" : "");
+    const button    = document.createElement("button");
+    button.className = "slot" + (idx === selectedBtnIdx ? " active" : "");
     button.style.gridColumn = btn.x + 1;
     button.style.gridRow    = btn.y + 1;
 
@@ -738,7 +702,7 @@ function renderGrid() {
         e.dataTransfer.effectAllowed = "move";
         setTimeout(() => button.classList.add("dragging"), 0);
       });
-      button.addEventListener("dragend", () => { draggedBtnIdx = null; button.classList.remove("dragging"); });
+      button.addEventListener("dragend",   () => { draggedBtnIdx = null; button.classList.remove("dragging"); });
       button.addEventListener("dragover",  (e) => { e.preventDefault(); button.classList.add("drag-over"); });
       button.addEventListener("dragleave", () => button.classList.remove("drag-over"));
       button.addEventListener("drop", (e) => {
@@ -756,35 +720,25 @@ function renderGrid() {
       `;
       button.addEventListener("click", () => selectButton(idx));
     }
-
     remoteGrid.appendChild(button);
   });
 }
 
 function dropBtnToPosition(btnIdx, x, y) {
-  if (btnIdx === null || btnIdx === undefined) return;
-  const layout = getCurrentLayout();
-  const btn = layout.buttons[btnIdx];
+  if (btnIdx == null) return;
+  const btn = getCurrentLayout().buttons[btnIdx];
   if (btn) { btn.x = x; btn.y = y; syncEditor(); renderGrid(); }
 }
 
 function swapButtons(idxA, idxB) {
-  const layout = getCurrentLayout();
-  const a = layout.buttons[idxA];
-  const b = layout.buttons[idxB];
-  if (a && b) {
-    [a.x, a.y, b.x, b.y] = [b.x, b.y, a.x, a.y];
-    syncEditor();
-    renderGrid();
-  }
+  const buttons = getCurrentLayout().buttons;
+  const a = buttons[idxA], b = buttons[idxB];
+  if (a && b) { [a.x, a.y, b.x, b.y] = [b.x, b.y, a.x, a.y]; syncEditor(); renderGrid(); }
 }
 
 function addButtonToLayout() {
   const layout = getCurrentLayout();
-  const occupied = new Set(layout.buttons.map(b => `${b.x},${b.y}`));
-  const maxX = layout.buttons.length > 0 ? Math.max(...layout.buttons.map(b => b.x)) + 1 : 5;
-  let x = 0, y = 0;
-  while (occupied.has(`${x},${y}`)) { x++; if (x >= maxX) { x = 0; y++; } }
+  const { x, y } = findFreePosition(layout);
   layout.buttons.push({ irCode: "", x, y });
   syncEditor();
   renderGrid();
@@ -804,8 +758,7 @@ function selectButton(idx) {
   selectedBtnIdx = idx;
   renderGrid();
 
-  const layout = getCurrentLayout();
-  const btn    = layout.buttons[idx];
+  const btn = getCurrentLayout().buttons[idx];
   if (!btn) return;
 
   const irCode = btn.irCode || "";
@@ -820,15 +773,10 @@ function selectButton(idx) {
   keyPresetSelect.value = preset;
 
   if (preset === "custom") {
-    if (isCombo && slot.steps) {
-      comboSteps = slot.steps.map(s => ({ ...s }));
-    } else if (slot.type === "text") {
-      comboSteps = [{ type: "text", value: slot.value || "" }];
-    } else if (slot.type && slot.key) {
-      comboSteps = [{ type: slot.type, key: slot.key, ...(slot.mods ? { mods: slot.mods } : {}) }];
-    } else {
-      comboSteps = [];
-    }
+    if (isCombo && slot.steps)     comboSteps = slot.steps.map(s => ({ ...s }));
+    else if (slot.type === "text") comboSteps = [{ type: "text", value: slot.value || "" }];
+    else if (slot.type && slot.key) comboSteps = [{ type: slot.type, key: slot.key, ...(slot.mods ? { mods: slot.mods } : {}) }];
+    else                           comboSteps = [];
     renderComboSteps();
   } else {
     comboSteps = [];
@@ -850,13 +798,11 @@ function clearDetailPanel() {
 }
 
 function updateSlotFromInputs() {
-  const layout = getCurrentLayout();
-  const btn    = layout.buttons[selectedBtnIdx];
+  const btn = getCurrentLayout().buttons[selectedBtnIdx];
   if (!btn) return;
 
   const irCode = irInput.value.trim();
   if (irCode && irCode !== btn.irCode) {
-    // IR code changed manually — update layout and transfer action
     const oldCode = btn.irCode;
     btn.irCode = irCode;
     if (oldCode) {
@@ -891,8 +837,7 @@ function updateSlotFromInputs() {
 }
 
 function clearSlot() {
-  const layout = getCurrentLayout();
-  const btn    = layout.buttons[selectedBtnIdx];
+  const btn = getCurrentLayout().buttons[selectedBtnIdx];
   if (!btn) return;
   if (btn.irCode) removeSlotByIrCode(currentModeIndex, btn.irCode);
   btn.irCode = "";
@@ -901,6 +846,7 @@ function clearSlot() {
   selectButton(selectedBtnIdx);
 }
 
+// ── IR learn ──────────────────────────────────────────────────
 async function requestLearn() {
   if (selectedBtnIdx === null) { logLine("Select a button first."); return; }
   learnArmed = true;
@@ -927,22 +873,17 @@ function setLayoutEditMode(active) {
 }
 
 function updateAutoAddHint() {
-  if (!autoAddActive) {
-    layoutEditHint.textContent = "Drag to rearrange • × to remove";
-    return;
-  }
-  layoutEditHint.textContent = autoAddStep === "ir"
-    ? "Press a remote button…"
-    : "Press the keyboard key…";
+  if (!autoAddActive) { layoutEditHint.textContent = "Drag to rearrange • × to remove"; return; }
+  layoutEditHint.textContent = autoAddStep === "ir" ? "Press a remote button…" : "Press the keyboard key…";
 }
 
 function startAutoAdd() {
   if (settings.modes[currentModeIndex].slots.length >= MAX_MAPPINGS) {
     logLine("Auto-Add: slot limit reached."); return;
   }
-  autoAddActive = true;
-  autoAddStep   = "ir";
-  autoAddIrCode = null;
+  autoAddActive    = true;
+  autoAddStep      = "ir";
+  autoAddIrCode    = null;
   addSlotBtn.disabled    = true;
   autoAddBtn.textContent = "Stop";
   updateAutoAddHint();
@@ -952,9 +893,9 @@ function startAutoAdd() {
 
 function stopAutoAdd() {
   if (!autoAddActive) return;
-  autoAddActive = false;
-  autoAddStep   = null;
-  autoAddIrCode = null;
+  autoAddActive    = false;
+  autoAddStep      = null;
+  autoAddIrCode    = null;
   addSlotBtn.disabled    = false;
   autoAddBtn.textContent = "Auto-Add";
   updateAutoAddHint();
@@ -962,13 +903,14 @@ function stopAutoAdd() {
 }
 
 // ── Event listeners ───────────────────────────────────────────
-connectBtn.addEventListener("click", () => { if (port) disconnect(); else connect(); });
-applyBtn.addEventListener("click", applySettings);
-learnBtn.addEventListener("click", requestLearn);
-clearBtn.addEventListener("click", clearSlot);
+connectBtn.addEventListener("click",    () => port ? disconnect() : connect());
+applyBtn.addEventListener("click",      applySettings);
+learnBtn.addEventListener("click",      requestLearn);
+clearBtn.addEventListener("click",      clearSlot);
 toggleJsonBtn.addEventListener("click", () => jsonPanel.classList.toggle("visible"));
 
 modeColorSwatch.addEventListener("click", () => hueDropdown.classList.toggle("open"));
+
 document.addEventListener("click", (e) => {
   if (!huePickerWrap.contains(e.target)) hueDropdown.classList.remove("open");
   if (captureComboActive && !comboEditor.contains(e.target)) stopComboCapture();
@@ -976,18 +918,10 @@ document.addEventListener("click", (e) => {
 });
 
 modeColorPicker.addEventListener("input", () => {
-  if (!settings?.led) return;
-  if (!Array.isArray(settings.led.modeColors)) {
-    settings.led.modeColors = Array.from({ length: settings.modes?.length || 2 },
-      (_, i) => DEFAULT_MODE_COLORS[i] || "0xFF0040");
-  }
-  while (settings.led.modeColors.length <= currentModeIndex)
-    settings.led.modeColors.push(DEFAULT_MODE_COLORS[currentModeIndex] || "0xFF0040");
+  ensureSettings();
   const hueColor = hueToHex(parseInt(modeColorPicker.value));
-  modeColorPicker.style.setProperty("--thumb-color", hueColor);
-  modeColorSwatch.style.background = hueColor;
+  applyHueColor(hueColor);
   settings.led.modeColors[currentModeIndex] = cssColorToSettings(hueColor);
-  ledBrightnessSlider.style.accentColor = hueColor;
   renderTabs();
   syncEditor();
 });
@@ -1002,19 +936,17 @@ ledBrightnessSlider.addEventListener("input", () => {
 
 editLayoutBtn.addEventListener("click", () => setLayoutEditMode(!layoutEditMode));
 doneEditBtn.addEventListener("click",   () => setLayoutEditMode(false));
-addSlotBtn.addEventListener("click", addButtonToLayout);
-autoAddBtn.addEventListener("click", () => { if (autoAddActive) stopAutoAdd(); else startAutoAdd(); });
+addSlotBtn.addEventListener("click",    addButtonToLayout);
+autoAddBtn.addEventListener("click",    () => autoAddActive ? stopAutoAdd() : startAutoAdd());
 
 document.addEventListener("keydown", (e) => {
-  // Combo capture for the detail panel
   if (captureComboActive) {
     if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
     if (e.key === "Escape") { e.preventDefault(); stopComboCapture(); return; }
     const hid = keyEventToHid(e);
     if (!hid) { logLine(`Unrecognized key "${e.key}"`); return; }
     e.preventDefault();
-    const physMods = hid.mods ? parseInt(hid.mods, 16) : 0;
-    const modsNum  = pendingMods | physMods;
+    const modsNum = pendingMods | (hid.mods ? parseInt(hid.mods, 16) : 0);
     const step = { type: hid.type, key: hid.key };
     if (modsNum) step.mods = "0x" + modsNum.toString(16).toUpperCase();
     comboSteps.push(step);
@@ -1024,7 +956,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
-  // Auto-Add HID step
   if (!autoAddActive || autoAddStep !== "hid") return;
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
   if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
@@ -1034,17 +965,11 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
 
   const layout = getCurrentLayout();
-  const occupied = new Set(layout.buttons.map(b => `${b.x},${b.y}`));
-  const maxX = layout.buttons.length > 0 ? Math.max(...layout.buttons.map(b => b.x)) + 1 : 5;
-  let x = 0, y = 0;
-  while (occupied.has(`${x},${y}`)) { x++; if (x >= maxX) { x = 0; y++; } }
+  const { x, y } = findFreePosition(layout);
   layout.buttons.push({ irCode: autoAddIrCode, x, y });
-
   setSlotByIrCode(currentModeIndex, autoAddIrCode, slotDataFromSlot(hid));
-
   const label = getHidLabel(hid.type, hid.key, hid.mods);
   if (label) setLabel(autoAddIrCode, label);
-
   syncEditor();
   saveLabels();
   renderGrid();
@@ -1055,15 +980,14 @@ document.addEventListener("keydown", (e) => {
     stopAutoAdd();
     return;
   }
-
-  autoAddStep   = "ir";
+  autoAddStep = "ir";
   autoAddIrCode = null;
   updateAutoAddHint();
   sendCommand({ op: "learn" });
   logLine("Auto-Add: press next remote button…");
 });
 
-addLayoutBtn.addEventListener("click", () => newLayoutForm.classList.toggle("visible"));
+addLayoutBtn.addEventListener("click",    () => newLayoutForm.classList.toggle("visible"));
 cancelLayoutBtn.addEventListener("click", () => newLayoutForm.classList.remove("visible"));
 saveLayoutBtn.addEventListener("click", () => {
   const name = layoutNameInput.value.trim();
@@ -1085,10 +1009,7 @@ keyPresetSelect.addEventListener("change", () => {
   if (val !== "custom" && val !== "mode_switch") updateSlotFromInputs();
 });
 
-comboCaptureBtn.addEventListener("click", () => {
-  if (captureComboActive) stopComboCapture();
-  else startComboCapture();
-});
+comboCaptureBtn.addEventListener("click", () => captureComboActive ? stopComboCapture() : startComboCapture());
 
 comboAddTextBtn.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -1119,10 +1040,7 @@ document.querySelectorAll(".combo-mod-toggle").forEach(btn => {
   });
 });
 
-// irInput is now editable — changing it reassigns the layout button's IR code
 irInput.addEventListener("change", updateSlotFromInputs);
-
-
 labelInput.addEventListener("input", updateSlotFromInputs);
 
 // ── Init ──────────────────────────────────────────────────────
