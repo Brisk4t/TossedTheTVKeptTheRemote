@@ -21,7 +21,6 @@ All you need is $5, an RP2040 and 5 minutes to turn that old, suspiciously stick
 
 
 
-
 ![App](/images/ttvktrcoveredit.png)
 
 
@@ -35,9 +34,10 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 | Feature | Description |
 |---|---|
 | Custom Keybindings UI in a browser | A browser-based editor for assigning remote buttons to keys, media controls, or custom actions. |
-| Multiple Layers for one remote | One physical remote can switch between several layouts or profiles, so the same buttons do different things in different modes. |
-| RGB LED for layers (and vibes) 🔴🟢🔵 | Layer-aware RGB lighting that changes color per mode, giving clear visual feedback and a more polished feel. |
-| Complex Combos | Support for multi-step or chorded inputs, including modifier combinations, repeated presses, and chained actions. |
+| Multiple Layers for one remote | One physical remote can switch between several layers, so the same buttons do different things. |
+| RGB LED for layers (and vibes) 🔴🟢🔵 | Layer-aware RGB lighting that changes color per mode, giving clear visual indication of the current layer. |
+| Complex Combos | Support for multi-step inputs, including modifier combinations, repeated presses, and chained actions. |
+| Layouts | Visually distinct way of telling different IR remotes apart |
 
 
 # Hardware 🛠️
@@ -45,6 +45,11 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 * USB-Capable microcontroller / dev board RP2040 board Pico, Pico W, RP2040-Zero, etc.
 * IR receiver 38 kHz module (TSOPxx or equivalent).
 * NeoPixel LED Single WS2812 for layer colour feedback.
+
+
+The TTVKTR uses a Raspberry Pi Pico (RP2040) and an IR receiver to read the codes sent by almost any commercial IR remote and maps them to USB Human Interface Device (HID) commands like Vol + , Play/Pause, or even custom combos.
+
+![RP2040 Zero](https://www.waveshare.com/w/upload/thumb/1/1f/900px-RP2040-Zero-details-7.jpg/800px-900px-RP2040-Zero-details-7.jpg)
 
 **Wiring (defaults — all configurable in settings)**
 
@@ -66,7 +71,7 @@ The firmware receives IR codes from a standard 38 kHz receiver and translates th
 2. Hold the ```BOOTSEL``` / ```BOOT``` button on the RP20xx board and plug it in to your computer / press reset (if already plugged in)
 3. Copy the ```firmware_with_fs.uf2``` to the newly discovered USB-Drive
 4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
-5. Connect and start adding buttons to the layout.
+5. Connect and start adding buttons to the layout, press LEARN to record an IR code.
 6. *If you used non-default wiring you can also change the pins used here. 
 
 > [!NOTE]
@@ -107,23 +112,22 @@ Each layer can have one or more **layouts** — named grids of buttons. Enter ed
 - Multiple steps chained with `→` (e.g. `Ctrl+A → Delete → Tab`)
 - Text steps that type a literal string character by character
 
+# It's been done before right? Right????
+### I was surprised that this didn't exist already. An IR remote reader is one of the things any hobbyist tests out when they first get started.
 
-# Repository layout
+There have been attempts like [this one by wagiminator](https://github.com/wagiminator/CH32V003-USB-IR-Receiver) and [Adafruit's pIRkey](https://www.adafruit.com/product/3364?srsltid=AfmBOoqHUI2BowCS8A7TT5zVqJnb2WnI61IyKsM-KeXnqmzzWePb-Dov) but they both need you to weave in and out of code just to paste in a string, and any complex behaviors are up to you. I wanted a way to quickly map the remote buttons to keys and combos like VIA based keyboards, AFAIK this is the only solution that removes that last bit of friction.
 
-```
-firmware/
-  platformio.ini        — PlatformIO build config
-  src/
-    main.cpp / main.h   — Core firmware
-    webserial.cpp/.h    — JSON serial protocol handler
-    settings.h          — JSON doc size and function declarations
-  data/
-    settings.json       — Runtime config (flashed to LittleFS)
-web/
-  index.html            — Config UI
-  app.js                — All UI logic
-  styles.css            — Styles
-```
+For the early version of this code, I pulled an XKCD 927 and built another less-code-but-not-really solution, and called it a day. 
+
+![XKCD 927 - Standards](https://imgs.xkcd.com/comics/standards.png)
+
+**But after using it for a while and having to still move a JSON file around I started itching for something more like how VIA and ZMK work for custom mechanical keyboards.**
+
+![VIA](https://docs.keeb.io/assets/images/01-keymap-default-screen-b38d9cf94dbb1aeafcf0ab7b21c37bc5.png)
+
+
+> [!NOTE]
+> I did build a [ZMK module](https://github.com/Brisk4t/TTVKTR-ZMK) as well but quickly realized that ZMK studio isn't mature enough for this level of customization and it would need a LOT of work to even get something like runtime RGB led config working from the UI. 
 
 
 ## Build from source & flash
@@ -208,7 +212,6 @@ Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads an
 ## Troubleshooting
 
 **No IR codes received** — check receiver wiring (VCC/GND/OUT) and ensure the module is running at 3.3 V, not 5 V.
-
 
 **Settings not persisting** — ensure the data partition was flashed (`pio run -t uploadfs`). The firmware falls back to defaults if `settings.json` is absent.
 
