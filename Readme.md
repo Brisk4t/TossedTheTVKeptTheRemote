@@ -218,7 +218,7 @@ Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads an
 
 **HID not recognised** — verify the correct PlatformIO environment is selected for your board. RP2040 boards require TinyUSB; check `platformio.ini`.
 
-**Wrong LED Color** - > Use the JSON editor on the webapp to change the ```colorOrder``` setting of the LED. The most common ones are: ```RGB```. ```BGR```, ```GRB```. 
+**Wrong LED Color** — Use the JSON editor on the webapp to change the ```colorOrder``` setting of the LED. The most common ones are: ```RGB```. ```BGR```, ```GRB```. 
 
 
 ## Acknowledgements (Praise the open source)
