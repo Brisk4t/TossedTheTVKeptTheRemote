@@ -71,8 +71,9 @@ The TTVKTR uses a Raspberry Pi Pico (RP2040) and an IR receiver to read the code
 2. Hold the ```BOOTSEL``` / ```BOOT``` button on the RP20xx board and plug it in to your computer / press reset (if already plugged in)
 3. Copy the ```firmware_with_fs.uf2``` to the newly discovered USB-Drive
 4. Navigate to [The TTVKTR webapp](https://brisk4t.github.io/TossedTheTVKeptTheRemote/).
-5. Connect and start adding buttons to the layout, press LEARN to record an IR code.
-6. *If you used non-default wiring you can also change the pins used here. 
+5. Click ```Connect``` and select the ```TinyUSB Serial``` device. 
+6. Once you're connected start adding buttons to the layout, press LEARN to record an IR code and then ```Apply``` to save your changes.
+7. *If you used non-default wiring you can also change the pins used here. 
 
 > [!NOTE]
 > Some RGB leds use different byte orders for their colors i.e. BGR instead of RGB. Use the JSON editor on the webapp to change this setting. 
