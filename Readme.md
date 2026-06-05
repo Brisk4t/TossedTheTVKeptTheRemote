@@ -76,7 +76,7 @@ The TTVKTR uses a Raspberry Pi Pico (RP2040) and an IR receiver to read the code
 7. *If you used non-default wiring you can also change the pins used here. 
 
 > [!NOTE]
-> Some RGB leds use different byte orders for their colors i.e. BGR instead of RGB. Use the JSON editor on the webapp to change this setting. 
+> Some RGB leds use different byte orders for their colors i.e. BGR instead of RGB. Use the JSON editor on the webapp to change this setting if you notice that the color selected in the web app is different from the color on the LED. 
 
 
 # Config UI
@@ -217,6 +217,8 @@ Settings are stored as JSON on LittleFS at `/settings.json`. The web UI reads an
 **Settings not persisting** — ensure the data partition was flashed (`pio run -t uploadfs`). The firmware falls back to defaults if `settings.json` is absent.
 
 **HID not recognised** — verify the correct PlatformIO environment is selected for your board. RP2040 boards require TinyUSB; check `platformio.ini`.
+
+**Wrong LED Color** - > Use the JSON editor on the webapp to change the ```colorOrder``` setting of the LED. The most common ones are: ```RGB```. ```BGR```, ```GRB```. 
 
 
 ## Acknowledgements (Praise the open source)
