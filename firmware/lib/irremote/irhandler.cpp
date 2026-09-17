@@ -183,14 +183,18 @@ void irremoteTick() {
     IrReceiver.resume();
     return;
   }
+  
 
-  if (code == 0x00 && HANDLE_REPEAT_CONFIG) {
+  if ( ( code == 0x00 || ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT ) 
+    && HANDLE_REPEAT_CONFIG) ) ) {
     if (repeatCount < REPEAT_DELAY_REPORTS) {
       repeatCount++;
       IrReceiver.resume();
       return;
     }
-    code = lastCode;
+    if ( code == 0x00 ) {
+      code = lastCode;
+    }
   } else {
     lastCode = code;
     repeatCount = 0;
