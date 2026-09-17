@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <ArduinoJson.h>
+#include "hid.h"
 
 // IR Settings (defaults — overridden by JSON if present)
 #define MODE_CHANGE_CODE 0xC40387EE
@@ -13,15 +14,6 @@
 #define MODE_COUNT         5
 #define MAX_COMBO_STEPS    8
 #define MAX_TEXT_STEP_LEN 48
-
-enum IRSlotType : uint8_t {
-  SLOT_NONE        = 0,
-  SLOT_KEYBOARD    = 1,
-  SLOT_CONSUMER    = 2,
-  SLOT_MODE_SWITCH = 3,
-  SLOT_COMBO       = 4,
-  SLOT_TEXT        = 5
-};
 
 struct ComboStep {
   uint16_t key;
@@ -53,9 +45,6 @@ extern char      comboTextData[MODE_COUNT][MAX_MAPPINGS][MAX_COMBO_STEPS][MAX_TE
 
 // Callbacks into main.cpp — defined there, called by irremoteTick
 void updateLED();
-void sendKeyboardReport(uint8_t keycode, uint8_t modifier = 0);
-void sendKeyboardKey(uint8_t ascii);
-void sendConsumerKey(uint16_t key);
 
 // IR module API
 void clearModeSlots(uint8_t modeIndex);

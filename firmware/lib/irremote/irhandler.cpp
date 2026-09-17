@@ -89,6 +89,8 @@ void applyIrSettings(JsonObject ir) {
     HANDLE_REPEAT_CONFIG = ir["handleRepeat"];
   if (ir["repeatInitialDelayReports"].is<uint8_t>())
     REPEAT_DELAY_REPORTS = ir["repeatInitialDelayReports"];
+  if (ir["releaseKeyTimeout"].is<uint16_t>())
+    RELEASE_KEY_TIMEOUT_CONFIG = ir["releaseKeyTimeout"];
   if (ir["modeCount"].is<uint8_t>()) {
     uint8_t mc = ir["modeCount"].as<uint8_t>();
     if (mc >= 1 && mc <= MODE_COUNT) numModes = mc;
@@ -176,6 +178,8 @@ void irremoteTick() {
   if (!IrReceiver.decode()) return;
 
   uint32_t code = IrReceiver.decodedIRData.decodedRawData;
+  bool isRepeat = (code == 0x00 || (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT));
+
   Serial.print("IR code: 0x");
   Serial.println(code, HEX);
 
@@ -183,24 +187,33 @@ void irremoteTick() {
     IrReceiver.resume();
     return;
   }
-  
 
-  if ( ( code == 0x00 || ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT ) 
-    && HANDLE_REPEAT_CONFIG) ) ) {
+  if (isRepeat && HANDLE_REPEAT_CONFIG) {
     if (repeatCount < REPEAT_DELAY_REPORTS) {
       repeatCount++;
+      // Keep key alive during delay phase so timeout doesn't fire
+      hidKeyKeepAlive();
       IrReceiver.resume();
       return;
     }
-    if ( code == 0x00 ) {
-      code = lastCode;
-    }
-  } else {
-    lastCode = code;
-    repeatCount = 0;
+    // Delay elapsed — send key-hold report (OS value 2)
+    hidKeyRepeat();
+    IrReceiver.resume();
+    return;
   }
 
+  if (isRepeat) {
+    // Repeat received but HANDLE_REPEAT_CONFIG is false — ignore
+    IrReceiver.resume();
+    return;
+  }
+
+  // New (non-repeat) code
+  lastCode = code;
+  repeatCount = 0;
+
   if (code == mode_change) {
+    hidKeyRelease();
     currentMode = (currentMode + 1) % numModes;
     updateLED();
     Serial.print("Mode switched: ");
@@ -210,21 +223,23 @@ void irremoteTick() {
     if (slotIndex >= 0) {
       IRSlot slot = modeSlots[currentMode][slotIndex];
       if (slot.type == SLOT_KEYBOARD) {
-        sendKeyboardReport((uint8_t)slot.key, slot.mods);
-        Serial.print("Sent keyboard key: 0x");
+        hidKeyPress(SLOT_KEYBOARD, slot.key, slot.mods);
+        Serial.print("Key down: 0x");
         Serial.print(slot.key, HEX);
         if (slot.mods) { Serial.print(" mods: 0x"); Serial.print(slot.mods, HEX); }
         Serial.println();
       } else if (slot.type == SLOT_CONSUMER) {
-        sendConsumerKey(slot.key);
-        Serial.print("Sent consumer key: 0x");
+        hidKeyPress(SLOT_CONSUMER, slot.key, 0);
+        Serial.print("Consumer down: 0x");
         Serial.println(slot.key, HEX);
       } else if (slot.type == SLOT_MODE_SWITCH) {
+        hidKeyRelease();
         currentMode = (currentMode + 1) % numModes;
         updateLED();
         Serial.print("Slot mode switch: ");
         Serial.println(currentMode);
       } else if (slot.type == SLOT_TEXT) {
+        hidKeyRelease();
         const char* text = slotTextData[currentMode][slotIndex];
         for (uint8_t c = 0; text[c] != '\0'; c++) {
           sendKeyboardKey((uint8_t)text[c]);
@@ -233,6 +248,7 @@ void irremoteTick() {
         Serial.print("Sent text: ");
         Serial.println(text);
       } else if (slot.type == SLOT_COMBO) {
+        hidKeyRelease();
         uint8_t stepCount = (uint8_t)slot.key;
         for (uint8_t s = 0; s < stepCount && s < MAX_COMBO_STEPS; s++) {
           ComboStep cs = comboData[currentMode][slotIndex][s];
